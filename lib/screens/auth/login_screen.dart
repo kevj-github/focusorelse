@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
+import '../../theme/colors.dart';
+import '../../widgets/common/app_button.dart';
+import '../../widgets/common/app_input.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,14 +16,11 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isSignUp = false;
-  final _displayNameController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
-    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -28,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0B),
+      backgroundColor: AppColors.darkBackground,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -36,40 +37,40 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Logo/Title
                 const Text(
                   'Focus or Else',
                   style: TextStyle(
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFFFF2659),
+                    color: AppColors.primary,
                     letterSpacing: -1,
                   ),
                 ),
                 const SizedBox(height: 8),
                 const Text(
                   'Hold yourself accountable',
-                  style: TextStyle(fontSize: 16, color: Color(0xFF9BA1A6)),
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: AppColors.textSecondaryDark,
+                  ),
                 ),
                 const SizedBox(height: 60),
-
-                // Error message
                 if (authProvider.errorMessage != null)
                   Container(
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 20),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFF2659).withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFFFF2659).withOpacity(0.3),
+                        color: AppColors.primary.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
                       children: [
                         const Icon(
                           Icons.error_outline,
-                          color: Color(0xFFFF2659),
+                          color: AppColors.primary,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
@@ -77,7 +78,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             authProvider.errorMessage!,
                             style: const TextStyle(
-                              color: Color(0xFFFF2659),
+                              color: AppColors.primary,
                               fontSize: 14,
                             ),
                           ),
@@ -86,18 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
-                // Display name field (only for sign up)
-                if (_isSignUp) ...[
-                  _buildTextField(
-                    controller: _displayNameController,
-                    label: 'Display Name',
-                    icon: Icons.person_outline,
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // Email field
-                _buildTextField(
+                AppInput(
                   controller: _emailController,
                   label: 'Email',
                   icon: Icons.email_outlined,
@@ -105,68 +95,28 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Password field
-                _buildTextField(
+                AppInput(
                   controller: _passwordController,
                   label: 'Password',
                   icon: Icons.lock_outline,
-                  isPassword: true,
+                  obscureText: true,
                 ),
                 const SizedBox(height: 24),
 
-                // Submit button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: authProvider.isLoading
-                        ? null
-                        : () => _handleEmailAuth(authProvider),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFF2659),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: authProvider.isLoading
-                        ? const SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
-                            ),
-                          )
-                        : Text(
-                            _isSignUp ? 'Sign Up' : 'Sign In',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                  ),
+                AppButton(
+                  label: 'Sign in',
+                  isLoading: authProvider.isLoading,
+                  onPressed: () => _handleEmailSignIn(authProvider),
                 ),
 
-                const SizedBox(height: 16),
-
-                // Toggle sign in/sign up
+                const SizedBox(height: 8),
                 TextButton(
-                  onPressed: () {
-                    setState(() {
-                      _isSignUp = !_isSignUp;
-                      authProvider.clearError();
-                    });
-                  },
-                  child: Text(
-                    _isSignUp
-                        ? 'Already have an account? Sign In'
-                        : 'Don\'t have an account? Sign Up',
-                    style: const TextStyle(
-                      color: Color(0xFF9BA1A6),
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/forgot-password'),
+                  child: const Text(
+                    'Forgot password?',
+                    style: TextStyle(
+                      color: AppColors.textSecondaryDark,
                       fontSize: 14,
                     ),
                   ),
@@ -174,79 +124,42 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 32),
 
-                // Divider
                 Row(
                   children: [
                     Expanded(
-                      child: Container(
-                        height: 1,
-                        color: const Color(0xFF1E1E20),
-                      ),
+                      child: Container(height: 1, color: AppColors.darkBorder),
                     ),
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'OR',
                         style: TextStyle(
-                          color: Color(0xFF9BA1A6),
+                          color: AppColors.textSecondaryDark,
                           fontSize: 14,
                         ),
                       ),
                     ),
                     Expanded(
-                      child: Container(
-                        height: 1,
-                        color: const Color(0xFF1E1E20),
-                      ),
+                      child: Container(height: 1, color: AppColors.darkBorder),
                     ),
                   ],
                 ),
 
                 const SizedBox(height: 32),
 
-                // Google Sign In button
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: OutlinedButton(
-                    onPressed: authProvider.isLoading
-                        ? null
-                        : () => _handleGoogleSignIn(authProvider),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(
-                        color: Color(0xFF1E1E20),
-                        width: 1.5,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: const Icon(
-                            Icons.g_mobiledata,
-                            size: 20,
-                            color: Color(0xFF4285F4),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Text(
-                          'Continue with Google',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                AppButton(
+                  label: 'Continue with Google',
+                  variant: AppButtonVariant.outline,
+                  isLoading: authProvider.isLoading,
+                  onPressed: () => _handleGoogleSignIn(authProvider),
+                ),
+
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => Navigator.pushNamed(context, '/signup'),
+                  child: const Text(
+                    'Don\'t have an account? Sign up',
+                    style: TextStyle(color: AppColors.textSecondaryDark),
                   ),
                 ),
               ],
@@ -257,65 +170,18 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required IconData icon,
-    bool isPassword = false,
-    TextInputType? keyboardType,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: const TextStyle(color: Color(0xFF9BA1A6)),
-        prefixIcon: Icon(icon, color: Color(0xFF9BA1A6)),
-        filled: true,
-        fillColor: const Color(0xFF1E1E20),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF1E1E20)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFFF2659), width: 2),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handleEmailAuth(AuthProvider authProvider) async {
+  Future<void> _handleEmailSignIn(AuthProvider authProvider) async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       return;
     }
 
-    if (_isSignUp && _displayNameController.text.isEmpty) {
-      return;
-    }
-
-    bool success;
-    if (_isSignUp) {
-      success = await authProvider.registerWithEmailPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-        _displayNameController.text.trim(),
-      );
-    } else {
-      success = await authProvider.signInWithEmailPassword(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
-    }
+    final success = await authProvider.signInWithEmailPassword(
+      _emailController.text.trim(),
+      _passwordController.text.trim(),
+    );
 
     if (success && mounted) {
-      // Navigation is handled by AuthWrapper in main.dart
+      FocusScope.of(context).unfocus();
     }
   }
 
@@ -329,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
           content: Text(
             authProvider.errorMessage ?? 'Failed to sign in with Google',
           ),
-          backgroundColor: const Color(0xFFFF2659),
+          backgroundColor: AppColors.primary,
         ),
       );
     }

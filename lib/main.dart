@@ -3,9 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
+import 'theme/app_theme.dart';
+import 'theme/colors.dart';
 import 'providers/auth_provider.dart';
 import 'providers/pact_provider.dart';
+import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/signup_screen.dart';
 import 'screens/home/home_screen.dart';
 
 void main() async {
@@ -33,18 +37,15 @@ class MyApp extends StatelessWidget {
       child: MaterialApp(
         title: 'Focus or Else',
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          brightness: Brightness.dark,
-          primaryColor: const Color(0xFFFF2659),
-          scaffoldBackgroundColor: const Color(0xFF0A0A0B),
-          colorScheme: ColorScheme.dark(
-            primary: const Color(0xFFFF2659),
-            secondary: const Color(0xFFFF4757),
-            surface: const Color(0xFF1F1E1F),
-          ),
-          fontFamily: 'Inter',
-          useMaterial3: true,
-        ),
+        theme: AppTheme.dark(),
+        darkTheme: AppTheme.dark(),
+        themeMode: ThemeMode.dark,
+        routes: {
+          '/login': (_) => const LoginScreen(),
+          '/signup': (_) => const SignupScreen(),
+          '/forgot-password': (_) => const ForgotPasswordScreen(),
+          '/home': (_) => const HomeScreen(),
+        },
         home: const AuthWrapper(),
       ),
     );
@@ -60,9 +61,9 @@ class AuthWrapper extends StatelessWidget {
 
     if (authProvider.isLoading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0A0A0B),
+        backgroundColor: AppColors.darkBackground,
         body: Center(
-          child: CircularProgressIndicator(color: Color(0xFFFF2659)),
+          child: CircularProgressIndicator(color: AppColors.primary),
         ),
       );
     }

@@ -6,12 +6,12 @@ class AppBottomNavBar extends StatelessWidget {
     super.key,
     required this.selectedIndex,
     required this.onTabSelected,
-    required this.onCreateTap,
+    required this.onPlusTap,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onTabSelected;
-  final VoidCallback onCreateTap;
+  final VoidCallback onPlusTap;
 
   @override
   Widget build(BuildContext context) {
@@ -27,21 +27,21 @@ class AppBottomNavBar extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _NavItem(
-              icon: Icons.home_outlined,
-              activeIcon: Icons.home,
-              label: 'Home',
+              icon: Icons.dashboard_outlined,
+              activeIcon: Icons.dashboard,
+              label: 'Dashboard',
               selected: selectedIndex == 0,
               onTap: () => onTabSelected(0),
             ),
             _NavItem(
-              icon: Icons.people_outline,
-              activeIcon: Icons.people,
-              label: 'Friends',
+              icon: Icons.dynamic_feed_outlined,
+              activeIcon: Icons.dynamic_feed,
+              label: 'Feed',
               selected: selectedIndex == 1,
               onTap: () => onTabSelected(1),
             ),
             InkWell(
-              onTap: onCreateTap,
+              onTap: onPlusTap,
               borderRadius: BorderRadius.circular(20),
               child: Container(
                 width: 44,
@@ -54,9 +54,9 @@ class AppBottomNavBar extends StatelessWidget {
               ),
             ),
             _NavItem(
-              icon: Icons.task_alt_outlined,
-              activeIcon: Icons.task_alt,
-              label: 'Pacts',
+              icon: Icons.people_outline,
+              activeIcon: Icons.people,
+              label: 'Friends',
               selected: selectedIndex == 2,
               onTap: () => onTabSelected(2),
             ),

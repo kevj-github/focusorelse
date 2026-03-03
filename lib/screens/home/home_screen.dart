@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
+import '../../theme/colors.dart';
+import '../../widgets/navigation/bottom_nav_bar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _loadUserData() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final pactProvider = Provider.of<PactProvider>(context, listen: false);
-    
+
     if (authProvider.firebaseUser != null) {
       final userId = authProvider.firebaseUser!.uid;
       pactProvider.loadActivePacts(userId);
@@ -38,14 +41,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final user = authProvider.userModel;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0A0A0B),
+      backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0A0A0B),
+        backgroundColor: AppColors.darkBackground,
         elevation: 0,
         title: const Text(
           'Focus or Else',
           style: TextStyle(
-            color: Color(0xFFFF2659),
+            color: AppColors.primary,
             fontWeight: FontWeight.bold,
             fontSize: 24,
           ),
@@ -60,16 +63,22 @@ class _HomeScreenState extends State<HomeScreen> {
           IconButton(
             icon: CircleAvatar(
               radius: 16,
-              backgroundColor: const Color(0xFF1E1E20),
+              backgroundColor: AppColors.darkSurface,
               backgroundImage: user?.profilePictureUrl != null
                   ? NetworkImage(user!.profilePictureUrl!)
                   : null,
               child: user?.profilePictureUrl == null
-                  ? const Icon(Icons.person, size: 20, color: Color(0xFF9BA1A6))
+                  ? const Icon(
+                      Icons.person,
+                      size: 20,
+                      color: AppColors.textSecondaryDark,
+                    )
                   : null,
             ),
             onPressed: () {
-              // TODO: Navigate to profile
+              setState(() {
+                _selectedIndex = 3;
+              });
             },
           ),
           const SizedBox(width: 8),
@@ -79,68 +88,27 @@ class _HomeScreenState extends State<HomeScreen> {
         index: _selectedIndex,
         children: [
           _buildDashboard(authProvider, pactProvider),
-          _buildPactsView(pactProvider),
+          _buildFeedView(),
           _buildFriendsView(),
           _buildProfileView(authProvider),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          border: Border(
-            top: BorderSide(color: Color(0xFF1E1E20), width: 1),
-          ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: (index) {
-            setState(() {
-              _selectedIndex = index;
-            });
-          },
-          backgroundColor: const Color(0xFF0A0A0B),
-          selectedItemColor: const Color(0xFFFF2659),
-          unselectedItemColor: const Color(0xFF9BA1A6),
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-          items: const [
-            BottomNavigationBarItem(
-              icon: Icon(Icons.home_outlined),
-              activeIcon: Icon(Icons.home),
-              label: 'Home',
+      bottomNavigationBar: AppBottomNavBar(
+        selectedIndex: _selectedIndex,
+        onTabSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        onPlusTap: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Create pact feature coming soon!'),
+              backgroundColor: AppColors.primary,
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.task_alt_outlined),
-              activeIcon: Icon(Icons.task_alt),
-              label: 'Pacts',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.people_outline),
-              activeIcon: Icon(Icons.people),
-              label: 'Friends',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.person_outline),
-              activeIcon: Icon(Icons.person),
-              label: 'Profile',
-            ),
-          ],
-        ),
+          );
+        },
       ),
-      floatingActionButton: _selectedIndex == 1
-          ? FloatingActionButton(
-              onPressed: () {
-                // TODO: Navigate to create pact screen
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Create pact feature coming soon!'),
-                    backgroundColor: Color(0xFFFF2659),
-                  ),
-                );
-              },
-              backgroundColor: const Color(0xFFFF2659),
-              child: const Icon(Icons.add, size: 28),
-            )
-          : null,
     );
   }
 
@@ -154,64 +122,72 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Welcome message
-          Text(
-            'Welcome back, ${user?.displayName ?? user?.username ?? 'User'}! 👋',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+          const Text(
+            'Dashboard',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Stay focused and achieve your goals',
-            style: TextStyle(
+          const SizedBox(height: 4),
+          Text(
+            'Welcome back, ${user?.displayName ?? user?.username ?? 'User'} 👋',
+            style: const TextStyle(
               fontSize: 16,
-              color: Color(0xFF9BA1A6),
+              color: AppColors.textSecondaryDark,
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 2),
+          const Text(
+            'Stay focused and close your commitments.',
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondaryDark),
+          ),
+          const SizedBox(height: 20),
 
-          // Stats card
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E20),
+              color: AppColors.darkSurface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: const Color(0xFFFF2659).withOpacity(0.2),
+                color: AppColors.primary.withValues(alpha: 0.2),
               ),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Text(
+                  'Accountability Snapshot',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondaryDark,
+                  ),
+                ),
+                const SizedBox(height: 14),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildStatItem(
-                      'Active Pacts',
-                      activePacts.length.toString(),
-                      Icons.task_alt,
+                    Expanded(
+                      child: _buildStatItem(
+                        'Active Pacts',
+                        activePacts.length.toString(),
+                        Icons.task_alt,
+                      ),
                     ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: const Color(0xFF2D2D30),
+                    Expanded(
+                      child: _buildStatItem(
+                        'Completion',
+                        '${(user?.stats.completionRate ?? 0).toStringAsFixed(0)}%',
+                        Icons.trending_up,
+                      ),
                     ),
-                    _buildStatItem(
-                      'Completion',
-                      '${(user?.stats.completionRate ?? 0).toStringAsFixed(0)}%',
-                      Icons.trending_up,
-                    ),
-                    Container(
-                      width: 1,
-                      height: 40,
-                      color: const Color(0xFF2D2D30),
-                    ),
-                    _buildStatItem(
-                      'Streak',
-                      '${user?.stats.currentStreak ?? 0} days',
-                      Icons.local_fire_department,
+                    Expanded(
+                      child: _buildStatItem(
+                        'Streak',
+                        '${user?.stats.currentStreak ?? 0} days',
+                        Icons.local_fire_department,
+                      ),
                     ),
                   ],
                 ),
@@ -219,9 +195,63 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
-          // Active pacts section
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.darkSurface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.darkBorder),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Create pact flow coming soon.'),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: AppColors.darkBorder),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add),
+                    label: const Text('New Pact'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _selectedIndex = 2;
+                      });
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: AppColors.darkBorder),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    icon: const Icon(Icons.people_outline),
+                    label: const Text('Friends'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -241,43 +271,46 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                   },
                   child: const Text(
-                    'View All',
-                    style: TextStyle(color: Color(0xFFFF2659)),
+                    'Go to Feed',
+                    style: TextStyle(color: AppColors.primary),
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
           if (activePacts.isEmpty)
             Container(
-              padding: const EdgeInsets.all(40),
+              padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E20),
+                color: AppColors.darkSurface,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.darkBorder),
               ),
-              child: Center(
+              child: const Center(
                 child: Column(
                   children: [
                     Icon(
-                      Icons.task_outlined,
-                      size: 48,
-                      color: const Color(0xFF9BA1A6).withOpacity(0.5),
+                      Icons.flag_outlined,
+                      size: 44,
+                      color: AppColors.textSecondaryDark,
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'No active pacts',
+                    SizedBox(height: 12),
+                    Text(
+                      'No active pacts yet',
                       style: TextStyle(
-                        fontSize: 16,
-                        color: Color(0xFF9BA1A6),
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Create your first pact to get started!',
+                    SizedBox(height: 6),
+                    Text(
+                      'Start your first pact to build momentum and streak.',
+                      textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Color(0xFF9BA1A6),
+                        color: AppColors.textSecondaryDark,
                       ),
                     ),
                   ],
@@ -288,17 +321,25 @@ class _HomeScreenState extends State<HomeScreen> {
             ...activePacts.take(3).map((pact) => _buildPactCard(pact)),
 
           if (pactsToVerify.isNotEmpty) ...[
-            const SizedBox(height: 32),
-            const Text(
-              'Pending Verifications',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+            const SizedBox(height: 26),
+            const Row(
+              children: [
+                Icon(Icons.verified_outlined, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text(
+                  'Pending Verifications',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 16),
-            ...pactsToVerify.take(3).map((pact) => _buildPactCard(pact, isVerification: true)),
+            const SizedBox(height: 14),
+            ...pactsToVerify
+                .take(3)
+                .map((pact) => _buildPactCard(pact, isVerification: true)),
           ],
         ],
       ),
@@ -308,12 +349,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
-        Icon(icon, color: const Color(0xFFFF2659), size: 24),
-        const SizedBox(height: 8),
+        Icon(icon, color: AppColors.primary, size: 20),
+        const SizedBox(height: 6),
         Text(
           value,
           style: const TextStyle(
-            fontSize: 20,
+            fontSize: 17,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -321,9 +362,10 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 4),
         Text(
           label,
+          textAlign: TextAlign.center,
           style: const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF9BA1A6),
+            fontSize: 11,
+            color: AppColors.textSecondaryDark,
           ),
         ),
       ],
@@ -335,12 +377,12 @@ class _HomeScreenState extends State<HomeScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E20),
+        color: AppColors.darkSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isVerification
-              ? const Color(0xFFFF2659).withOpacity(0.3)
-              : const Color(0xFF2D2D30),
+              ? AppColors.primary.withValues(alpha: 0.3)
+              : AppColors.darkBorder,
         ),
       ),
       child: Column(
@@ -360,9 +402,12 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (isVerification)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFF2659).withOpacity(0.2),
+                    color: AppColors.primary.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: const Text(
@@ -370,7 +415,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFFFF2659),
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -382,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
               const Icon(
                 Icons.schedule,
                 size: 14,
-                color: Color(0xFF9BA1A6),
+                color: AppColors.textSecondaryDark,
               ),
               const SizedBox(width: 4),
               Text(
@@ -390,8 +435,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   color: pact.isOverdue
-                      ? const Color(0xFFFF2659)
-                      : const Color(0xFF9BA1A6),
+                      ? AppColors.primary
+                      : AppColors.textSecondaryDark,
                 ),
               ),
             ],
@@ -401,10 +446,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPactsView(PactProvider pactProvider) {
+  Widget _buildFeedView() {
     return const Center(
       child: Text(
-        'Pacts View - Coming Soon',
+        'Feed View - Coming Soon',
         style: TextStyle(color: Colors.white, fontSize: 18),
       ),
     );
@@ -428,12 +473,16 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundColor: const Color(0xFF1E1E20),
+            backgroundColor: AppColors.darkSurface,
             backgroundImage: user?.profilePictureUrl != null
                 ? NetworkImage(user!.profilePictureUrl!)
                 : null,
             child: user?.profilePictureUrl == null
-                ? const Icon(Icons.person, size: 50, color: Color(0xFF9BA1A6))
+                ? const Icon(
+                    Icons.person,
+                    size: 50,
+                    color: AppColors.textSecondaryDark,
+                  )
                 : null,
           ),
           const SizedBox(height: 16),
@@ -450,7 +499,7 @@ class _HomeScreenState extends State<HomeScreen> {
             user?.email ?? '',
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF9BA1A6),
+              color: AppColors.textSecondaryDark,
             ),
           ),
           const SizedBox(height: 32),
@@ -459,7 +508,7 @@ class _HomeScreenState extends State<HomeScreen> {
               await authProvider.signOut();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF2659),
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               shape: RoundedRectangleBorder(

@@ -5,22 +5,26 @@
 Your API keys have been secured! Here's what changed:
 
 ### 1. **Environment Variables Created**
+
 - `.env` - Contains all your Firebase API keys (⚠️ NOT committed to git)
 - `.env.example` - Template file for other developers (✅ committed to git)
 
 ### 2. **Files Updated**
+
 - `lib/firebase_options.dart` - Now reads from environment variables
 - `lib/main.dart` - Loads .env before initializing Firebase
 - `pubspec.yaml` - Added flutter_dotenv package
 - `.gitignore` - Excludes .env and Firebase config files
 
 ### 3. **Sensitive Files Removed from Git**
+
 - ❌ `android/app/google-services.json` - removed from tracking
 - ❌ `ios/Runner/GoogleService-Info.plist` - removed from tracking
 
 These files still exist locally but are no longer tracked by git.
 
 ### 4. **Documentation Added**
+
 - `SECURITY.md` - Security guidelines and best practices
 - `README.md` - Updated with setup instructions
 
@@ -30,11 +34,12 @@ These files still exist locally but are no longer tracked by git.
 ✅ `.env` is in `.gitignore`  
 ✅ Firebase config files removed from git tracking  
 ✅ Environment variables loaded before Firebase initialization  
-✅ Template file (`.env.example`) provided for team members  
+✅ Template file (`.env.example`) provided for team members
 
 ## 📋 What You Need to Know
 
 ### Your .env File Location
+
 ```
 c:\Users\Klot\Documents\CS206\test\focusorelse\.env
 ```
@@ -44,6 +49,7 @@ c:\Users\Klot\Documents\CS206\test\focusorelse\.env
 When someone clones your repository, they need to:
 
 1. Copy `.env.example` to `.env`:
+
    ```bash
    cp .env.example .env
    ```

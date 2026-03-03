@@ -98,6 +98,17 @@ class FirestoreService {
     }
   }
 
+  // Check if pact exists by ID
+  Future<bool> pactExists(String pactId) async {
+    try {
+      final doc = await _pactsCollection.doc(pactId).get();
+      return doc.exists;
+    } catch (e) {
+      print('Error checking pact existence: $e');
+      rethrow;
+    }
+  }
+
   // Get pact by ID
   Future<PactModel?> getPact(String pactId) async {
     try {
@@ -141,6 +152,22 @@ class FirestoreService {
     }
 
     return query
+        .orderBy('deadline', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => PactModel.fromFirestore(doc)).toList(),
+        );
+  }
+
+  // Get user's expired pacts (completed + failed)
+  Stream<List<PactModel>> streamUserExpiredPacts(String userId) {
+    return _pactsCollection
+        .where('userId', isEqualTo: userId)
+        .where(
+          'status',
+          whereIn: [PactStatus.completed.name, PactStatus.failed.name],
+        )
         .orderBy('deadline', descending: false)
         .snapshots()
         .map(
@@ -255,6 +282,44 @@ class FirestoreService {
       return query.docs.isNotEmpty;
     } catch (e) {
       print('Error checking friendship: $e');
+      rethrow;
+    }
+  }
+
+  // Get accepted friend user IDs for a user (both outgoing and incoming)
+  Future<List<String>> getAcceptedFriendUserIds(String userId) async {
+    try {
+      final outgoingQuery = await _friendsCollection
+          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: FriendRequestStatus.accepted.name)
+          .get();
+
+      final incomingQuery = await _friendsCollection
+          .where('friendId', isEqualTo: userId)
+          .where('status', isEqualTo: FriendRequestStatus.accepted.name)
+          .get();
+
+      final friendIds = <String>{};
+
+      for (final doc in outgoingQuery.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final friendId = (data['friendId'] ?? '').toString();
+        if (friendId.isNotEmpty && friendId != userId) {
+          friendIds.add(friendId);
+        }
+      }
+
+      for (final doc in incomingQuery.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        final requesterId = (data['userId'] ?? '').toString();
+        if (requesterId.isNotEmpty && requesterId != userId) {
+          friendIds.add(requesterId);
+        }
+      }
+
+      return friendIds.toList()..sort();
+    } catch (e) {
+      print('Error getting accepted friend IDs: $e');
       rethrow;
     }
   }

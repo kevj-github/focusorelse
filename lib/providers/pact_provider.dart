@@ -15,8 +15,10 @@ class PactProvider with ChangeNotifier {
   StreamSubscription<List<PactModel>>? _activePactsSubscription;
   StreamSubscription<List<PactModel>>? _completedPactsSubscription;
   StreamSubscription<List<PactModel>>? _pactsToVerifySubscription;
+  final Set<String> _autoFailingPactIds = <String>{};
   bool _isLoading = false;
   String? _errorMessage;
+  String? _lastCreatedPactId;
 
   // Getters
   List<PactModel> get activePacts => _activePacts;
@@ -24,6 +26,7 @@ class PactProvider with ChangeNotifier {
   List<PactModel> get pactsToVerify => _pactsToVerify;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get lastCreatedPactId => _lastCreatedPactId;
 
   // Load user's active pacts
   void loadActivePacts(String userId) {
@@ -32,7 +35,19 @@ class PactProvider with ChangeNotifier {
         .streamUserPacts(userId, status: PactStatus.active)
         .listen(
           (pacts) {
-            _activePacts = pacts;
+            final overduePacts = pacts
+                .where(
+                  (pact) =>
+                      pact.isOverdue &&
+                      !_autoFailingPactIds.contains(pact.pactId),
+                )
+                .toList();
+
+            if (overduePacts.isNotEmpty) {
+              unawaited(_autoFailOverduePacts(overduePacts));
+            }
+
+            _activePacts = pacts.where((pact) => !pact.isOverdue).toList();
             _errorMessage = null;
             notifyListeners();
           },
@@ -43,11 +58,27 @@ class PactProvider with ChangeNotifier {
         );
   }
 
-  // Load user's completed pacts
+  Future<void> _autoFailOverduePacts(List<PactModel> overduePacts) async {
+    for (final pact in overduePacts) {
+      _autoFailingPactIds.add(pact.pactId);
+      try {
+        final updatedPact = pact.copyWith(
+          status: PactStatus.failed,
+          completedAt: DateTime.now(),
+        );
+        await _firestoreService.updatePact(updatedPact);
+      } catch (_) {
+      } finally {
+        _autoFailingPactIds.remove(pact.pactId);
+      }
+    }
+  }
+
+  // Load user's expired pacts (completed + failed)
   void loadCompletedPacts(String userId) {
     _completedPactsSubscription?.cancel();
     _completedPactsSubscription = _firestoreService
-        .streamUserPacts(userId, status: PactStatus.completed)
+        .streamUserExpiredPacts(userId)
         .listen(
           (pacts) {
             _completedPacts = pacts;
@@ -55,7 +86,7 @@ class PactProvider with ChangeNotifier {
             notifyListeners();
           },
           onError: (error) {
-            _errorMessage = 'Failed to load completed pacts';
+            _errorMessage = 'Failed to load expired pacts';
             notifyListeners();
           },
         );
@@ -80,7 +111,7 @@ class PactProvider with ChangeNotifier {
   }
 
   // Create a new pact
-  Future<bool> createPact({
+  Future<String?> createPact({
     required String userId,
     required String taskDescription,
     required DateTime deadline,
@@ -94,6 +125,7 @@ class PactProvider with ChangeNotifier {
     try {
       _isLoading = true;
       _errorMessage = null;
+      _lastCreatedPactId = null;
       notifyListeners();
 
       final pact = PactModel(
@@ -115,16 +147,25 @@ class PactProvider with ChangeNotifier {
             [],
       );
 
-      await _firestoreService.createPact(pact);
+      final createdPactId = await _firestoreService.createPact(pact);
+      final existsInDatabase = await _firestoreService.pactExists(
+        createdPactId,
+      );
+
+      if (!existsInDatabase) {
+        throw Exception('Pact was not persisted to Firestore.');
+      }
+
+      _lastCreatedPactId = createdPactId;
 
       _isLoading = false;
       notifyListeners();
-      return true;
+      return createdPactId;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to create pact';
+      _errorMessage = 'Failed to create pact: ${e.toString()}';
       notifyListeners();
-      return false;
+      return null;
     }
   }
 

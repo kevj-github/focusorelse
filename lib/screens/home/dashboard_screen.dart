@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../models/pact_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
+import '../create_pact/create_pact_screen.dart';
 import '../../theme/colors.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
 
@@ -35,6 +36,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       pactProvider.loadActivePacts(userId);
       pactProvider.loadCompletedPacts(userId);
       pactProvider.loadPactsToVerify(userId);
+    }
+  }
+
+  Future<void> _openCreatePactFlow() async {
+    final created = await Navigator.of(
+      context,
+    ).push<bool>(MaterialPageRoute(builder: (_) => const CreatePactScreen()));
+
+    if (!mounted) return;
+
+    if (created == true) {
+      _loadUserData();
+      setState(() {
+        _selectedIndex = 0;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pact created successfully.'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
     }
   }
 
@@ -107,14 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _selectedIndex = index;
           });
         },
-        onPlusTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Create pact feature coming soon!'),
-              backgroundColor: AppColors.primary,
-            ),
-          );
-        },
+        onPlusTap: _openCreatePactFlow,
       ),
     );
   }
@@ -254,98 +269,127 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
 
     final bool isLoading = pactProvider.isLoading && selectedPacts.isEmpty;
 
-    return RefreshIndicator(
-      color: AppColors.primary,
-      onRefresh: () async {
-        final uid = authProvider.firebaseUser?.uid;
-        if (uid != null) {
-          pactProvider.loadActivePacts(uid);
-          pactProvider.loadCompletedPacts(uid);
-          pactProvider.loadPactsToVerify(uid);
-        }
-      },
-      child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        children: [
-          const Text(
-            'Dashboard',
-            style: TextStyle(
-              fontSize: 30,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Welcome back, ${authProvider.userModel?.displayName ?? authProvider.userModel?.username ?? 'User'}',
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textSecondaryDark,
-            ),
-          ),
-          const SizedBox(height: 20),
-          _buildDashboardTabs(),
-          const SizedBox(height: 16),
-          _buildCalendarCard(pactMarkers),
-          const SizedBox(height: 20),
-          if (isLoading)
-            const Padding(
-              padding: EdgeInsets.only(top: 48),
-              child: Center(
-                child: CircularProgressIndicator(color: AppColors.primary),
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: const Alignment(-0.9, -1.0),
+                radius: 1.15,
+                colors: [
+                  AppColors.primary.withValues(alpha: 0.08),
+                  AppColors.darkBackground,
+                ],
               ),
-            )
-          else if (pactProvider.errorMessage != null && selectedPacts.isEmpty)
-            _buildErrorState(context, pactProvider)
-          else if (selectedPacts.isEmpty)
-            _buildEmptyState()
-          else ...[
-            if (featuredPact != null) ...[
-              _buildSectionTitle('Featured Active Pact'),
-              const SizedBox(height: 12),
-              _buildFeaturedPactCard(context, featuredPact),
-              const SizedBox(height: 24),
-            ],
-            _buildSectionTitle(
-              _dashboardTabIndex == 0 ? 'Upcoming Pacts' : 'Expired Pacts',
             ),
-            const SizedBox(height: 12),
-            ...upcomingPacts
-                .take(6)
-                .map(
-                  (pact) => _buildUpcomingPactCard(
-                    pact,
-                    showOverdue: _dashboardTabIndex == 0,
+          ),
+        ),
+        Positioned(
+          top: 220,
+          right: -40,
+          child: IgnorePointer(
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.accent.withValues(alpha: 0.05),
+              ),
+            ),
+          ),
+        ),
+        RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () async {
+            final uid = authProvider.firebaseUser?.uid;
+            if (uid != null) {
+              pactProvider.loadActivePacts(uid);
+              pactProvider.loadCompletedPacts(uid);
+              pactProvider.loadPactsToVerify(uid);
+            }
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+            children: [
+              _buildHeroHeader(
+                name:
+                    authProvider.userModel?.displayName ??
+                    authProvider.userModel?.username ??
+                    'User',
+              ),
+              const SizedBox(height: 20),
+              _buildDashboardTabs(),
+              const SizedBox(height: 16),
+              _buildCalendarCard(
+                pactMarkers,
+                activePacts: activePacts,
+                expiredPacts: expiredPacts,
+              ),
+              const SizedBox(height: 20),
+              if (isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 48),
+                  child: Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
                   ),
+                )
+              else if (pactProvider.errorMessage != null &&
+                  selectedPacts.isEmpty)
+                _buildErrorState(context, pactProvider)
+              else if (selectedPacts.isEmpty)
+                _buildEmptyState()
+              else ...[
+                if (featuredPact != null) ...[
+                  _buildSectionTitle('Featured Active Pact'),
+                  const SizedBox(height: 12),
+                  _buildFeaturedPactCard(context, featuredPact),
+                  const SizedBox(height: 24),
+                ],
+                _buildSectionTitle(
+                  _dashboardTabIndex == 0 ? 'Upcoming Pacts' : 'Expired Pacts',
                 ),
-            if (upcomingPacts.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.darkSurface,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.darkBorder),
-                ),
-                child: Text(
-                  _dashboardTabIndex == 0
-                      ? 'No additional upcoming pacts.'
-                      : 'No expired/completed pacts yet.',
-                  style: const TextStyle(color: AppColors.textSecondaryDark),
-                ),
-              ),
-          ],
-        ],
-      ),
+                const SizedBox(height: 12),
+                ...upcomingPacts
+                    .take(6)
+                    .map(
+                      (pact) => _buildUpcomingPactCard(
+                        pact,
+                        showOverdue: _dashboardTabIndex == 0,
+                      ),
+                    ),
+                if (upcomingPacts.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.darkSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.darkBorder),
+                    ),
+                    child: Text(
+                      _dashboardTabIndex == 0
+                          ? 'No additional upcoming pacts.'
+                          : 'No expired/completed pacts yet.',
+                      style: const TextStyle(
+                        color: AppColors.textSecondaryDark,
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildDashboardTabs() {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.darkBorder),
+        color: AppColors.darkSurface.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.darkBorder.withValues(alpha: 0.9)),
       ),
       child: Row(
         children: [
@@ -368,16 +412,25 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+          padding: const EdgeInsets.symmetric(vertical: 13),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(13),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.26),
+                      blurRadius: 12,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               color: isSelected ? Colors.white : AppColors.textSecondaryDark,
             ),
           ),
@@ -386,7 +439,11 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     );
   }
 
-  Widget _buildCalendarCard(Map<String, _CalendarDayMarker> pactMarkers) {
+  Widget _buildCalendarCard(
+    Map<String, _CalendarDayMarker> pactMarkers, {
+    required List<PactModel> activePacts,
+    required List<PactModel> expiredPacts,
+  }) {
     final monthLabel = DateFormat('MMMM').format(_visibleMonth);
     final weekdayLabels = const ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final days = _buildMonthCells(_visibleMonth);
@@ -394,9 +451,9 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: AppColors.darkSurface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(color: AppColors.darkBorder.withValues(alpha: 0.95)),
       ),
       child: Column(
         children: [
@@ -406,7 +463,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 monthLabel,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 30,
+                  fontSize: 28,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -448,7 +505,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                         label,
                         style: const TextStyle(
                           color: AppColors.textSecondaryDark,
-                          fontSize: 11,
+                          fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -501,6 +558,14 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     _selectedDate = day;
                     _visibleMonth = DateTime(day.year, day.month, 1);
                   });
+
+                  if (marker != null) {
+                    _showPactsForDay(
+                      day,
+                      activePacts: activePacts,
+                      expiredPacts: expiredPacts,
+                    );
+                  }
                 },
                 child: Center(
                   child: AnimatedContainer(
@@ -613,13 +678,128 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     );
   }
 
+  Future<void> _showPactsForDay(
+    DateTime day, {
+    required List<PactModel> activePacts,
+    required List<PactModel> expiredPacts,
+  }) async {
+    final dayPacts = <PactModel>[
+      ...activePacts.where((pact) => _isSameDay(pact.deadline, day)),
+      ...expiredPacts.where((pact) => _isSameDay(pact.deadline, day)),
+    ]..sort((a, b) => a.deadline.compareTo(b.deadline));
+
+    if (dayPacts.isEmpty) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.darkSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        final dayLabel = DateFormat('EEE, MMM d').format(day);
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: AppColors.darkBorder,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
+                  ),
+                ),
+                Text(
+                  'Pacts on $dayLabel',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: dayPacts.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final pact = dayPacts[index];
+                      final isActive = pact.status == PactStatus.active;
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.darkBackground,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.darkBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    pact.taskDescription,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    DateFormat('h:mm a').format(pact.deadline),
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondaryDark,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildStatusBadge(
+                              label: isActive ? 'ACTIVE' : 'EXPIRED',
+                              color: isActive
+                                  ? AppColors.primary
+                                  : AppColors.accent,
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildSectionTitle(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        color: Colors.white,
+    return Padding(
+      padding: const EdgeInsets.only(left: 2),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 19,
+          fontWeight: FontWeight.w800,
+          color: Colors.white,
+          letterSpacing: 0.2,
+        ),
       ),
     );
   }
@@ -631,12 +811,21 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: AppColors.darkSurface.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: isOverdue ? AppColors.primary : AppColors.darkBorder,
           width: isOverdue ? 1.5 : 1,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: isOverdue
+                ? AppColors.primary.withValues(alpha: 0.2)
+                : Colors.black.withValues(alpha: 0.22),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,27 +844,9 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: isOverdue
-                      ? AppColors.primary.withValues(alpha: 0.2)
-                      : AppColors.darkBackground,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  isOverdue ? 'OVERDUE' : 'ACTIVE',
-                  style: TextStyle(
-                    color: isOverdue
-                        ? AppColors.primary
-                        : AppColors.textSecondaryDark,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 11,
-                  ),
-                ),
+              _buildStatusBadge(
+                label: isOverdue ? 'OVERDUE' : 'ACTIVE',
+                color: AppColors.primary,
               ),
             ],
           ),
@@ -736,6 +907,26 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     );
   }
 
+  Widget _buildStatusBadge({required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.22),
+        border: Border.all(color: color.withValues(alpha: 0.7)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+        ),
+      ),
+    );
+  }
+
   Widget _buildUpcomingPactCard(PactModel pact, {required bool showOverdue}) {
     final isOverdue = pact.isOverdue;
 
@@ -743,7 +934,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: AppColors.darkSurface.withValues(alpha: 0.88),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: showOverdue && isOverdue
@@ -886,6 +1077,38 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
 
   bool _isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Widget _buildHeroHeader({required String name}) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: AppColors.darkSurface.withValues(alpha: 0.35),
+        border: Border.all(color: AppColors.darkBorder.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Dashboard',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Welcome back, $name',
+            style: const TextStyle(
+              fontSize: 16,
+              color: AppColors.textSecondaryDark,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

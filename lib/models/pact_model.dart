@@ -2,7 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 enum PactStatus { active, completed, failed, verificationPending }
 
-enum VerificationType { selfAttest, friendVerify, photoProof, videoProof }
+enum VerificationType {
+  selfAttest,
+  friendVerify,
+  aiVerify,
+  photoProof,
+  videoProof,
+}
 
 enum ConsequenceType { socialSharing, donationChallenge, funnyPenalty }
 

@@ -10,7 +10,7 @@ import 'providers/pact_provider.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
-import 'screens/home/home_screen.dart';
+import 'screens/home/dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +44,7 @@ class MyApp extends StatelessWidget {
           '/login': (_) => const LoginScreen(),
           '/signup': (_) => const SignupScreen(),
           '/forgot-password': (_) => const ForgotPasswordScreen(),
-          '/home': (_) => const HomeScreen(),
+          '/home': (_) => const DashboardScreen(),
         },
         home: const AuthWrapper(),
       ),
@@ -69,7 +69,7 @@ class AuthWrapper extends StatelessWidget {
     }
 
     if (authProvider.isAuthenticated) {
-      return const HomeScreen();
+      return const DashboardScreen();
     }
 
     return const LoginScreen();

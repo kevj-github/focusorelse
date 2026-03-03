@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'dart:async';
 import '../models/pact_model.dart';
 import '../services/firestore_service.dart';
 import '../services/storage_service.dart';
@@ -11,6 +12,9 @@ class PactProvider with ChangeNotifier {
   List<PactModel> _activePacts = [];
   List<PactModel> _completedPacts = [];
   List<PactModel> _pactsToVerify = [];
+  StreamSubscription<List<PactModel>>? _activePactsSubscription;
+  StreamSubscription<List<PactModel>>? _completedPactsSubscription;
+  StreamSubscription<List<PactModel>>? _pactsToVerifySubscription;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -23,11 +27,13 @@ class PactProvider with ChangeNotifier {
 
   // Load user's active pacts
   void loadActivePacts(String userId) {
-    _firestoreService
+    _activePactsSubscription?.cancel();
+    _activePactsSubscription = _firestoreService
         .streamUserPacts(userId, status: PactStatus.active)
         .listen(
           (pacts) {
             _activePacts = pacts;
+            _errorMessage = null;
             notifyListeners();
           },
           onError: (error) {
@@ -39,11 +45,13 @@ class PactProvider with ChangeNotifier {
 
   // Load user's completed pacts
   void loadCompletedPacts(String userId) {
-    _firestoreService
+    _completedPactsSubscription?.cancel();
+    _completedPactsSubscription = _firestoreService
         .streamUserPacts(userId, status: PactStatus.completed)
         .listen(
           (pacts) {
             _completedPacts = pacts;
+            _errorMessage = null;
             notifyListeners();
           },
           onError: (error) {
@@ -55,11 +63,13 @@ class PactProvider with ChangeNotifier {
 
   // Load pacts that need verification by user
   void loadPactsToVerify(String userId) {
-    _firestoreService
+    _pactsToVerifySubscription?.cancel();
+    _pactsToVerifySubscription = _firestoreService
         .streamPactsToVerify(userId)
         .listen(
           (pacts) {
             _pactsToVerify = pacts;
+            _errorMessage = null;
             notifyListeners();
           },
           onError: (error) {
@@ -240,5 +250,13 @@ class PactProvider with ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _activePactsSubscription?.cancel();
+    _completedPactsSubscription?.cancel();
+    _pactsToVerifySubscription?.cancel();
+    super.dispose();
   }
 }

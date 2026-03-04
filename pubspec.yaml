@@ -60,6 +60,7 @@ dependencies:
 
    # Utilities
    uuid: ^4.5.1
+   http: ^1.2.2
 
    # Environment variables
    flutter_dotenv: ^5.2.1

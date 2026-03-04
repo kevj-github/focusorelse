@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user_model.dart';
 import '../models/pact_model.dart';
 import '../models/friend_model.dart';
+import '../models/post_model.dart';
+import '../models/post_comment_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -10,6 +12,7 @@ class FirestoreService {
   CollectionReference get _usersCollection => _db.collection('users');
   CollectionReference get _pactsCollection => _db.collection('pacts');
   CollectionReference get _friendsCollection => _db.collection('friends');
+  CollectionReference get _postsCollection => _db.collection('posts');
 
   // USER OPERATIONS
 
@@ -41,6 +44,21 @@ class FirestoreService {
   Future<void> updateUser(UserModel user) async {
     try {
       await _usersCollection.doc(user.userId).update(user.toFirestore());
+      final authoredPosts = await _postsCollection
+          .where('authorId', isEqualTo: user.userId)
+          .get();
+
+      if (authoredPosts.docs.isNotEmpty) {
+        final batch = _db.batch();
+        for (final doc in authoredPosts.docs) {
+          batch.update(doc.reference, {
+            'authorDisplayName': user.displayName ?? user.username ?? 'Unknown',
+            'authorUsername': user.username,
+            'authorProfilePictureUrl': user.profilePictureUrl,
+          });
+        }
+        await batch.commit();
+      }
     } catch (e) {
       print('Error updating user: $e');
       rethrow;
@@ -284,6 +302,129 @@ class FirestoreService {
       print('Error checking friendship: $e');
       rethrow;
     }
+  }
+
+  // POST OPERATIONS
+
+  Future<String> createPost(PostModel post) async {
+    try {
+      final docRef = await _postsCollection.add(post.toFirestore());
+      return docRef.id;
+    } catch (e) {
+      print('Error creating post: $e');
+      rethrow;
+    }
+  }
+
+  Stream<List<PostModel>> streamUserPosts(String userId) {
+    return _postsCollection
+        .where('authorId', isEqualTo: userId)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => PostModel.fromFirestore(doc)).toList(),
+        );
+  }
+
+  Stream<List<PostModel>> streamPostsByAuthorIds(List<String> authorIds) {
+    if (authorIds.isEmpty) {
+      return Stream.value([]);
+    }
+
+    final limitedIds = authorIds.take(10).toList();
+
+    return _postsCollection
+        .where('authorId', whereIn: limitedIds)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => PostModel.fromFirestore(doc)).toList(),
+        );
+  }
+
+  Stream<PostModel?> streamPost(String postId) {
+    return _postsCollection.doc(postId).snapshots().map((doc) {
+      if (!doc.exists) {
+        return null;
+      }
+      return PostModel.fromFirestore(doc);
+    });
+  }
+
+  Future<void> togglePostLike({
+    required String postId,
+    required String userId,
+  }) async {
+    final postRef = _postsCollection.doc(postId);
+    final likeRef = postRef.collection('likes').doc(userId);
+
+    await _db.runTransaction((transaction) async {
+      final likeDoc = await transaction.get(likeRef);
+
+      if (likeDoc.exists) {
+        transaction.delete(likeRef);
+        transaction.update(postRef, {'likeCount': FieldValue.increment(-1)});
+      } else {
+        transaction.set(likeRef, {
+          'userId': userId,
+          'createdAt': Timestamp.now(),
+        });
+        transaction.update(postRef, {'likeCount': FieldValue.increment(1)});
+      }
+    });
+  }
+
+  Stream<bool> streamIsPostLiked({
+    required String postId,
+    required String userId,
+  }) {
+    return _postsCollection
+        .doc(postId)
+        .collection('likes')
+        .doc(userId)
+        .snapshots()
+        .map((doc) => doc.exists);
+  }
+
+  Stream<List<PostCommentModel>> streamPostComments(String postId) {
+    return _postsCollection
+        .doc(postId)
+        .collection('comments')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => PostCommentModel.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Future<void> addPostComment({
+    required String postId,
+    required String authorId,
+    required String authorDisplayName,
+    String? authorUsername,
+    String? authorProfilePictureUrl,
+    required String text,
+  }) async {
+    final postRef = _postsCollection.doc(postId);
+    final commentRef = postRef.collection('comments').doc();
+    final comment = PostCommentModel(
+      commentId: commentRef.id,
+      postId: postId,
+      authorId: authorId,
+      authorDisplayName: authorDisplayName,
+      authorUsername: authorUsername,
+      authorProfilePictureUrl: authorProfilePictureUrl,
+      text: text,
+      createdAt: DateTime.now(),
+    );
+
+    final batch = _db.batch();
+    batch.set(commentRef, comment.toFirestore());
+    batch.update(postRef, {'commentCount': FieldValue.increment(1)});
+    await batch.commit();
   }
 
   // Get accepted friend user IDs for a user (both outgoing and incoming)

@@ -681,17 +681,44 @@ To become the leading social accountability platform that helps students transfo
 
 **Must Have for Launch:**
 
-- ✅ User authentication (Google OAuth)
-- ✅ Friend system (add, accept, list)
-- ✅ Pact creation (quick mode only)
-- ✅ Active pact limits (3 for all users)
-- ✅ Friend verification flow
-- ✅ Evidence submission (photo + text)
-- ✅ Basic consequence library (5-7 consequences)
-- ✅ Simple feed (completed pacts)
-- ✅ Basic profile (posts tab with grid)
-- ✅ Push notifications (deadline reminders)
-- ✅ Stats tracking (streak, success rate)
+- ✅ User authentication (Google OAuth + email/password + reset password)
+- 🔄 Friend system backend primitives (Firestore friend requests/accepted IDs) exist; full friends UI screens pending
+- ✅ Pact creation (quick mode style consolidated flow with validation and success state)
+- ⏳ Active pact limits (3 for all users) not enforced yet
+- 🔄 Friend verification data flow exists; complete end-to-end verifier UX pending
+- 🔄 Evidence submission provider/service exists; complete in-app evidence submission UX pending
+- 🔄 Consequence selection exists (3 enum-backed options); expanded library pending
+- ⏳ Feed UI is still a placeholder
+- ✅ Profile now includes editable bio/profile image/username + posts tab + stats tab
+- 🔄 Notifications service exists (FCM/local foundations), full reminder UX wiring pending
+- ✅ Stats tracking baseline (streak + success rate + pact summary chart)
+
+Legend: ✅ implemented, 🔄 partial/in progress, ⏳ not started.
+
+---
+
+## 8.5 Implementation Status Checkpoint (Code Audit — March 4, 2026)
+
+The following reflects the as-built Flutter app state in `lib/`.
+
+### Implemented now
+
+- App shell + dark theme + reusable common widgets (`AppButton`, `AppInput`, `AppCard`, `AppAvatar`, `AppBadge`).
+- Bottom navigation shell with Dashboard / Feed / Plus / Friends / Profile destinations.
+- Auth flows and provider/service integration with Firebase Auth + Firestore user creation/update.
+- Dashboard pact experience (active/expired, calendar markers, featured pact, list states, refresh).
+- Create Pact end-to-end creation flow with deadline validation and Firestore persistence check.
+- Profile module with editable profile metadata and Firestore-backed social post creation + profile post grid.
+- Profile stats view with streak/success rate and a weekly pact summary bar chart.
+- Post domain foundation for future Feed (`PostModel`, `PostProvider`, Firestore post streams).
+
+### Still pending
+
+- Feed timeline UI and friend post aggregation presentation.
+- Friends screens (friend list/request/chat UI).
+- Full notifications UX (permission timing, in-app banners, reminder event wiring).
+- In-app settings screen (settings icon currently placeholder action).
+- Advanced analytics and integrations tabs in profile.
 
 ### 8.2 Phase 2 Features (Weeks 6-10)
 
@@ -1205,9 +1232,10 @@ To become the leading social accountability platform that helps students transfo
 
 ## Document History
 
-| Version | Date          | Author    | Changes                                       |
-| ------- | ------------- | --------- | --------------------------------------------- |
-| 1.0     | March 2, 2026 | G3T2 Team | Initial PRD based on Iteration 1 deliverables |
+| Version | Date          | Author         | Changes                                       |
+| ------- | ------------- | -------------- | --------------------------------------------- |
+| 1.0     | March 2, 2026 | G3T2 Team      | Initial PRD based on Iteration 1 deliverables |
+| 1.1     | March 4, 2026 | Copilot + G3T2 | Code-audited implementation status update     |
 
 ---
 

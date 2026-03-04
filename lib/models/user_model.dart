@@ -5,6 +5,7 @@ class UserModel {
   final String email;
   final String? username;
   final String? displayName;
+  final String? bio;
   final String? profilePictureUrl;
   final UserStats stats;
   final List<String> friendIds;
@@ -17,6 +18,7 @@ class UserModel {
     required this.email,
     this.username,
     this.displayName,
+    this.bio,
     this.profilePictureUrl,
     required this.stats,
     required this.friendIds,
@@ -33,6 +35,7 @@ class UserModel {
       email: data['email'] ?? '',
       username: data['username'],
       displayName: data['displayName'],
+      bio: data['bio'],
       profilePictureUrl: data['profilePictureUrl'],
       stats: UserStats.fromMap(data['stats'] ?? {}),
       friendIds: List<String>.from(data['friendIds'] ?? []),
@@ -48,6 +51,7 @@ class UserModel {
       'email': email,
       'username': username,
       'displayName': displayName,
+      'bio': bio,
       'profilePictureUrl': profilePictureUrl,
       'stats': stats.toMap(),
       'friendIds': friendIds,
@@ -67,6 +71,7 @@ class UserModel {
       userId: userId,
       email: email,
       displayName: displayName,
+      bio: '',
       stats: UserStats.empty(),
       friendIds: [],
       settings: UserSettings.defaults(),
@@ -79,6 +84,7 @@ class UserModel {
   UserModel copyWith({
     String? username,
     String? displayName,
+    String? bio,
     String? profilePictureUrl,
     UserStats? stats,
     List<String>? friendIds,
@@ -90,6 +96,7 @@ class UserModel {
       email: email,
       username: username ?? this.username,
       displayName: displayName ?? this.displayName,
+      bio: bio ?? this.bio,
       profilePictureUrl: profilePictureUrl ?? this.profilePictureUrl,
       stats: stats ?? this.stats,
       friendIds: friendIds ?? this.friendIds,

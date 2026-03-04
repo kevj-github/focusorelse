@@ -1,6 +1,6 @@
 # Focus or Else (FoE) — Product UI/UX + Flutter Execution Plan
 
-**Last Updated:** March 3, 2026  
+**Last Updated:** March 4, 2026  
 **Primary Design Source:** Figma frame `samplescreens01` (`1030:4396`)  
 **Execution Philosophy:** Use Figma as visual direction, but prioritize usability, consistency, accessibility, and implementation quality.
 
@@ -274,7 +274,7 @@ Required:
 
 Required:
 
-- Current streak, completion rate, time-window breakdown.
+- Current streak, completion rate, pact summary chart (bar chart).
 - Start with simple visualizations before advanced analytics.
 
 ---
@@ -481,3 +481,41 @@ When Figma and usability conflict, choose the option that improves:
 - consistency with system tokens and reusable components.
 
 That decision rule should guide all upcoming screen work.
+
+---
+
+## 14) Current Implementation Snapshot (As-Built: March 4, 2026)
+
+This section reflects the **actual code status** in `lib/` and should be used for sprint planning.
+
+### Implemented
+
+- App shell + theme tokens (`dark` theme active) and bottom nav with 5 destinations + center plus action.
+- Auth stack: login, sign-up, forgot password with email/password and Google sign-in.
+- Dashboard (Active/Expired): live pact loading, calendar strip, featured pact, upcoming/expired lists, refresh, loading/empty/error states.
+- Create Pact consolidated flow: task/category/deadline/verifier/consequence/review + validation + success state.
+- Profile redesign:
+   - Editable username, bio, profile picture URL.
+   - Posts tab with real post creation + Firestore-backed user post grid + post detail bottom sheet.
+   - Stats tab with streak, success rate, and pact summary bar chart.
+- Firestore data layer for users, pacts, friends, and posts (including user post streams).
+- Storage service support for profile image/pact evidence upload methods (service level).
+
+### In Progress / Partial
+
+- Notification service class exists (FCM + local notification plumbing), but app-level UX wiring is still partial.
+- Evidence submission backend/provider methods exist, while full user-facing evidence UI flow is not fully wired from dashboard/profile interactions.
+- Settings icon now replaces profile icon in top app bar; in-app settings screen is intentionally deferred.
+
+### Not Yet Implemented (Planned)
+
+- Feed screen UI/UX and friend post timeline rendering.
+- Friends screens (list, requests, chat).
+- Dedicated notifications UX (permission timing flow, in-app banner pattern per spec).
+- Advanced profile analytics (reliability score trend, long-range comparisons, integrations tab).
+
+### Notes for Next Iteration
+
+- Reuse `PostProvider`/`FirestoreService.streamPostsByAuthorIds(...)` to implement friend feed quickly.
+- Promote current profile post composer from URL-based input to media picker + upload flow.
+- Add settings screen scaffold and move notification/privacy controls there.

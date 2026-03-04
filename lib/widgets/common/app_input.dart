@@ -6,14 +6,18 @@ class AppInput extends StatelessWidget {
     super.key,
     required this.controller,
     required this.label,
-    required this.icon,
+    this.icon,
+    this.hintText,
+    this.maxLines = 1,
     this.keyboardType,
     this.obscureText = false,
   });
 
   final TextEditingController controller;
   final String label;
-  final IconData icon;
+  final IconData? icon;
+  final String? hintText;
+  final int maxLines;
   final TextInputType? keyboardType;
   final bool obscureText;
 
@@ -23,13 +27,17 @@ class AppInput extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
+      maxLines: maxLines,
       style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         labelText: label,
+        hintText: hintText,
         labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
         prefixIcon: const Icon(Icons.circle, size: 0),
         prefixIconConstraints: const BoxConstraints(minWidth: 12),
-        suffixIcon: Icon(icon, color: AppColors.textSecondaryDark),
+        suffixIcon: icon != null
+            ? Icon(icon, color: AppColors.textSecondaryDark)
+            : null,
       ),
     );
   }

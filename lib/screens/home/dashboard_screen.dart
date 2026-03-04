@@ -1,13 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pact_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
+import '../../providers/post_provider.dart';
+import '../../services/storage_service.dart';
 import '../create_pact/create_pact_screen.dart';
+import '../profile/profile_screen.dart';
 import '../../theme/colors.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
 
@@ -24,18 +29,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _loadUserData();
+    });
   }
 
   void _loadUserData() {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     final pactProvider = Provider.of<PactProvider>(context, listen: false);
+    final postProvider = Provider.of<PostProvider>(context, listen: false);
 
     if (authProvider.firebaseUser != null) {
       final userId = authProvider.firebaseUser!.uid;
       pactProvider.loadActivePacts(userId);
       pactProvider.loadCompletedPacts(userId);
       pactProvider.loadPactsToVerify(userId);
+      postProvider.loadUserPosts(userId);
     }
   }
 
@@ -60,10 +70,256 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
+  Future<void> _openCreateActionSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.darkSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.post_add, color: Colors.white),
+                  title: const Text(
+                    'Create Post',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openCreatePostFlow();
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.flag_outlined, color: Colors.white),
+                  title: const Text(
+                    'Create Pact',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _openCreatePactFlow();
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openCreatePostFlow() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final postProvider = Provider.of<PostProvider>(context, listen: false);
+    final storageService = StorageService();
+    final user = authProvider.userModel;
+    final userId = authProvider.firebaseUser?.uid;
+
+    if (user == null || userId == null) return;
+
+    final captionController = TextEditingController();
+    final imagePicker = ImagePicker();
+    File? selectedImage;
+    bool isSubmitting = false;
+    bool sheetActive = true;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.darkSurface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> pickImage() async {
+              final picked = await imagePicker.pickImage(
+                source: ImageSource.gallery,
+                imageQuality: 80,
+              );
+
+              if (picked == null) return;
+
+              if (!context.mounted || !sheetActive) return;
+              setModalState(() {
+                selectedImage = File(picked.path);
+              });
+            }
+
+            Future<void> publish() async {
+              if (captionController.text.trim().isEmpty ||
+                  selectedImage == null) {
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Caption and image are required.'),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+                return;
+              }
+
+              if (!context.mounted || !sheetActive) return;
+              setModalState(() {
+                isSubmitting = true;
+              });
+
+              try {
+                final imageUrl = await storageService.uploadPostImage(
+                  userId,
+                  selectedImage!,
+                );
+
+                final success = await postProvider.createPost(
+                  authorId: userId,
+                  authorDisplayName:
+                      user.displayName ?? user.username ?? 'Focus User',
+                  authorUsername: user.username,
+                  authorProfilePictureUrl: user.profilePictureUrl,
+                  caption: captionController.text.trim(),
+                  imageUrl: imageUrl,
+                );
+
+                if (!mounted || !context.mounted || !sheetActive) return;
+                if (success) {
+                  sheetActive = false;
+                  Navigator.of(context).pop();
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Post published.'),
+                        backgroundColor: AppColors.primary,
+                      ),
+                    );
+                  });
+                }
+              } on StorageServiceException catch (error) {
+                if (!mounted || !this.context.mounted) return;
+                final message = error.code == 'config-missing'
+                    ? 'Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET to your .env file.'
+                    : 'Image upload failed. Please try again.';
+
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(
+                    content: Text(message),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              } catch (_) {
+                if (!mounted || !this.context.mounted) return;
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Failed to publish post. Please try again.'),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              } finally {
+                if (context.mounted && sheetActive) {
+                  setModalState(() {
+                    isSubmitting = false;
+                  });
+                }
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                20 + MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Create Post',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: captionController,
+                      maxLines: 3,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: const InputDecoration(
+                        labelText: 'Caption',
+                        hintText: 'What do you want to share?',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: isSubmitting ? null : pickImage,
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: Text(
+                          selectedImage == null
+                              ? 'Upload Image'
+                              : 'Image Selected',
+                        ),
+                      ),
+                    ),
+                    if (selectedImage != null) ...[
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(
+                          selectedImage!,
+                          height: 170,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isSubmitting ? null : publish,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(46),
+                        ),
+                        child: isSubmitting
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Publish Post'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      sheetActive = false;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-
     return Scaffold(
       backgroundColor: AppColors.darkBackground,
       appBar: AppBar(
@@ -90,24 +346,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
           ),
           IconButton(
-            icon: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.darkSurface,
-              backgroundImage: authProvider.userModel?.profilePictureUrl != null
-                  ? NetworkImage(authProvider.userModel!.profilePictureUrl!)
-                  : null,
-              child: authProvider.userModel?.profilePictureUrl == null
-                  ? const Icon(
-                      Icons.person,
-                      size: 20,
-                      color: AppColors.textSecondaryDark,
-                    )
-                  : null,
-            ),
+            icon: const Icon(Icons.settings_outlined, color: Colors.white),
             onPressed: () {
-              setState(() {
-                _selectedIndex = 3;
-              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('In-app settings editor coming later.'),
+                  backgroundColor: AppColors.primary,
+                ),
+              );
             },
           ),
           const SizedBox(width: 8),
@@ -119,7 +365,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const _DashboardTabView(),
           _buildFeedView(),
           _buildFriendsView(),
-          _buildProfileView(authProvider),
+          ProfileScreen(onRetry: _loadUserData),
         ],
       ),
       bottomNavigationBar: AppBottomNavBar(
@@ -129,7 +375,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _selectedIndex = index;
           });
         },
-        onPlusTap: _openCreatePactFlow,
+        onPlusTap: _openCreateActionSheet,
       ),
     );
   }
@@ -148,65 +394,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Text(
         'Friends View - Coming Soon',
         style: TextStyle(color: Colors.white, fontSize: 18),
-      ),
-    );
-  }
-
-  Widget _buildProfileView(AuthProvider authProvider) {
-    final user = authProvider.userModel;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 50,
-            backgroundColor: AppColors.darkSurface,
-            backgroundImage: user?.profilePictureUrl != null
-                ? NetworkImage(user!.profilePictureUrl!)
-                : null,
-            child: user?.profilePictureUrl == null
-                ? const Icon(
-                    Icons.person,
-                    size: 50,
-                    color: AppColors.textSecondaryDark,
-                  )
-                : null,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            user?.displayName ?? user?.username ?? 'User',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            user?.email ?? '',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.textSecondaryDark,
-            ),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: () async {
-              await authProvider.signOut();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            icon: const Icon(Icons.logout),
-            label: const Text('Sign Out'),
-          ),
-        ],
       ),
     );
   }

@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'theme/colors.dart';
 import 'providers/auth_provider.dart';
 import 'providers/pact_provider.dart';
+import 'providers/post_provider.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
@@ -18,8 +20,21 @@ void main() async {
   // Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Initialize Firebase with environment variables
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    if (kIsWeb) {
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+    } else {
+      await Firebase.initializeApp();
+    }
+  } on FirebaseException catch (error) {
+    if (error.code != 'duplicate-app') {
+      rethrow;
+    }
+
+    Firebase.app();
+  }
 
   runApp(const MyApp());
 }
@@ -33,6 +48,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PactProvider()),
+        ChangeNotifierProvider(create: (_) => PostProvider()),
       ],
       child: MaterialApp(
         title: 'Focus or Else',

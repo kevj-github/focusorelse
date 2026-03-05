@@ -30,10 +30,15 @@ class AuthProvider with ChangeNotifier {
       _firebaseUser = user;
 
       if (user != null) {
+        _isLoading = true;
+        _errorMessage = null;
+        notifyListeners();
+
         // Load user model from Firestore
         await _loadUserModel(user.uid);
       } else {
         _userModel = null;
+        _isLoading = false;
       }
 
       notifyListeners();
@@ -49,22 +54,71 @@ class AuthProvider with ChangeNotifier {
       // If user doesn't exist in Firestore yet, create it
       if (user == null && _firebaseUser != null) {
         print('User not found in Firestore, creating new user document...');
+        final baseName = _firebaseUser!.displayName?.trim().isNotEmpty == true
+            ? _firebaseUser!.displayName!.trim()
+            : _firebaseUser!.email?.split('@').first ?? 'focususer';
+        final generatedUsername = await _firestoreService
+            .generateUniqueUsername(baseName, excludeUserId: userId);
         final newUser = UserModel.create(
           userId: userId,
           email: _firebaseUser!.email ?? '',
+          username: generatedUsername,
           displayName: _firebaseUser!.displayName,
         );
-        await _firestoreService.createUser(newUser);
+        try {
+          await _firestoreService.createUser(newUser);
+        } catch (createError) {
+          print(
+            'Error creating Firestore user document, using fallback model: $createError',
+          );
+        }
         _userModel = newUser;
       }
 
       notifyListeners();
     } catch (e) {
       print('Error loading user model: $e');
-      // Don't set error message here - user is still authenticated
-      // Just notify listeners so UI can update
+
+      final firebaseUser = _firebaseUser;
+      if (firebaseUser != null) {
+        _userModel = _buildFallbackUserModel(firebaseUser);
+      }
+
+      notifyListeners();
+    } finally {
+      _isLoading = false;
       notifyListeners();
     }
+  }
+
+  UserModel _buildFallbackUserModel(User firebaseUser) {
+    final normalized = _normalizeUsernameCandidate(
+      firebaseUser.displayName?.trim().isNotEmpty == true
+          ? firebaseUser.displayName!
+          : firebaseUser.email?.split('@').first ?? 'focususer',
+    );
+
+    final username = normalized.length >= 3 ? normalized : '${normalized}user';
+
+    return UserModel.create(
+      userId: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      username: username,
+      displayName: firebaseUser.displayName,
+    );
+  }
+
+  String _normalizeUsernameCandidate(String value) {
+    final normalized = value.toLowerCase().replaceAll(
+      RegExp(r'[^a-z0-9_]'),
+      '',
+    );
+
+    if (normalized.isEmpty) {
+      return 'focususer';
+    }
+
+    return normalized;
   }
 
   // Sign in with Google
@@ -114,6 +168,7 @@ class AuthProvider with ChangeNotifier {
     String email,
     String password,
     String displayName,
+    String username,
   ) async {
     try {
       _isLoading = true;
@@ -124,6 +179,7 @@ class AuthProvider with ChangeNotifier {
         email,
         password,
         displayName,
+        username,
       );
 
       _isLoading = false;
@@ -134,6 +190,20 @@ class AuthProvider with ChangeNotifier {
       _isLoading = false;
       _errorMessage = _getErrorMessage(e);
       notifyListeners();
+      return false;
+    }
+  }
+
+  Future<bool> isUsernameAvailable(
+    String username, {
+    String? excludeUserId,
+  }) async {
+    try {
+      return await _authService.isUsernameAvailable(
+        username,
+        excludeUserId: excludeUserId,
+      );
+    } catch (_) {
       return false;
     }
   }

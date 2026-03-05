@@ -4,22 +4,95 @@ import '../models/pact_model.dart';
 import '../models/friend_model.dart';
 import '../models/post_model.dart';
 import '../models/post_comment_model.dart';
+import '../models/chat_message_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Collection references
   CollectionReference get _usersCollection => _db.collection('users');
+  CollectionReference get _usernamesCollection => _db.collection('usernames');
   CollectionReference get _pactsCollection => _db.collection('pacts');
   CollectionReference get _friendsCollection => _db.collection('friends');
   CollectionReference get _postsCollection => _db.collection('posts');
+  CollectionReference get _chatsCollection => _db.collection('chats');
+
+  String normalizeUsername(String value) {
+    final lower = value.trim().toLowerCase();
+    final withoutPrefix = lower.startsWith('@') ? lower.substring(1) : lower;
+    final cleaned = withoutPrefix.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    return cleaned;
+  }
+
+  Future<bool> isUsernameAvailable(
+    String username, {
+    String? excludeUserId,
+  }) async {
+    final normalized = normalizeUsername(username);
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    final doc = await _usernamesCollection.doc(normalized).get();
+    if (!doc.exists) {
+      return true;
+    }
+
+    final data = doc.data() as Map<String, dynamic>?;
+    final ownerUserId = (data?['userId'] ?? '').toString();
+    return excludeUserId != null && ownerUserId == excludeUserId;
+  }
+
+  Future<String> generateUniqueUsername(
+    String seed, {
+    String? excludeUserId,
+  }) async {
+    final normalizedSeed = normalizeUsername(seed);
+    final base = normalizedSeed.isEmpty ? 'focususer' : normalizedSeed;
+
+    if (await isUsernameAvailable(base, excludeUserId: excludeUserId)) {
+      return base;
+    }
+
+    var counter = 1;
+    while (true) {
+      final candidate = '$base$counter';
+      if (await isUsernameAvailable(candidate, excludeUserId: excludeUserId)) {
+        return candidate;
+      }
+      counter += 1;
+    }
+  }
 
   // USER OPERATIONS
 
   // Create user
   Future<void> createUser(UserModel user) async {
     try {
-      await _usersCollection.doc(user.userId).set(user.toFirestore());
+      final normalizedUsername = normalizeUsername(user.username ?? '');
+
+      await _db.runTransaction((transaction) async {
+        final userRef = _usersCollection.doc(user.userId);
+
+        if (normalizedUsername.isNotEmpty) {
+          final usernameRef = _usernamesCollection.doc(normalizedUsername);
+          final usernameSnapshot = await transaction.get(usernameRef);
+          if (usernameSnapshot.exists) {
+            throw Exception('USERNAME_TAKEN');
+          }
+
+          transaction.set(usernameRef, {
+            'userId': user.userId,
+            'username': normalizedUsername,
+            'createdAt': Timestamp.now(),
+          });
+        }
+
+        final sanitizedUser = user.copyWith(
+          username: normalizedUsername.isEmpty ? null : normalizedUsername,
+        );
+        transaction.set(userRef, sanitizedUser.toFirestore());
+      });
     } catch (e) {
       print('Error creating user: $e');
       rethrow;
@@ -43,7 +116,53 @@ class FirestoreService {
   // Update user
   Future<void> updateUser(UserModel user) async {
     try {
-      await _usersCollection.doc(user.userId).update(user.toFirestore());
+      final normalizedUsername = normalizeUsername(user.username ?? '');
+
+      await _db.runTransaction((transaction) async {
+        final userRef = _usersCollection.doc(user.userId);
+        final existingUserSnapshot = await transaction.get(userRef);
+
+        if (!existingUserSnapshot.exists) {
+          throw Exception('USER_NOT_FOUND');
+        }
+
+        final existingData =
+            existingUserSnapshot.data() as Map<String, dynamic>? ?? {};
+        final existingUsername = normalizeUsername(
+          (existingData['username'] ?? '').toString(),
+        );
+
+        if (normalizedUsername != existingUsername) {
+          if (normalizedUsername.isNotEmpty) {
+            final newUsernameRef = _usernamesCollection.doc(normalizedUsername);
+            final newUsernameSnapshot = await transaction.get(newUsernameRef);
+            if (newUsernameSnapshot.exists) {
+              final ownerData =
+                  newUsernameSnapshot.data() as Map<String, dynamic>? ?? {};
+              final ownerId = (ownerData['userId'] ?? '').toString();
+              if (ownerId != user.userId) {
+                throw Exception('USERNAME_TAKEN');
+              }
+            }
+
+            transaction.set(newUsernameRef, {
+              'userId': user.userId,
+              'username': normalizedUsername,
+              'createdAt': Timestamp.now(),
+            });
+          }
+
+          if (existingUsername.isNotEmpty) {
+            transaction.delete(_usernamesCollection.doc(existingUsername));
+          }
+        }
+
+        final sanitizedUser = user.copyWith(
+          username: normalizedUsername.isEmpty ? null : normalizedUsername,
+        );
+        transaction.set(userRef, sanitizedUser.toFirestore());
+      });
+
       final authoredPosts = await _postsCollection
           .where('authorId', isEqualTo: user.userId)
           .get();
@@ -53,7 +172,7 @@ class FirestoreService {
         for (final doc in authoredPosts.docs) {
           batch.update(doc.reference, {
             'authorDisplayName': user.displayName ?? user.username ?? 'Unknown',
-            'authorUsername': user.username,
+            'authorUsername': normalizeUsername(user.username ?? ''),
             'authorProfilePictureUrl': user.profilePictureUrl,
           });
         }
@@ -68,7 +187,20 @@ class FirestoreService {
   // Delete user
   Future<void> deleteUser(String userId) async {
     try {
-      await _usersCollection.doc(userId).delete();
+      await _db.runTransaction((transaction) async {
+        final userRef = _usersCollection.doc(userId);
+        final userSnapshot = await transaction.get(userRef);
+        if (userSnapshot.exists) {
+          final userData = userSnapshot.data() as Map<String, dynamic>? ?? {};
+          final existingUsername = normalizeUsername(
+            (userData['username'] ?? '').toString(),
+          );
+          if (existingUsername.isNotEmpty) {
+            transaction.delete(_usernamesCollection.doc(existingUsername));
+          }
+        }
+        transaction.delete(userRef);
+      });
     } catch (e) {
       print('Error deleting user: $e');
       rethrow;
@@ -86,17 +218,31 @@ class FirestoreService {
   }
 
   // Search users by username
-  Future<List<UserModel>> searchUsersByUsername(String username) async {
+  Future<List<UserModel>> searchUsersByUsername(
+    String username, {
+    String? excludeUserId,
+  }) async {
     try {
+      final normalizedQuery = normalizeUsername(username);
+      if (normalizedQuery.isEmpty) {
+        return [];
+      }
+
       final querySnapshot = await _usersCollection
-          .where('username', isGreaterThanOrEqualTo: username)
-          .where('username', isLessThanOrEqualTo: '$username\uf8ff')
+          .where('username', isGreaterThanOrEqualTo: normalizedQuery)
+          .where('username', isLessThanOrEqualTo: '$normalizedQuery\uf8ff')
           .limit(20)
           .get();
 
-      return querySnapshot.docs
+      final users = querySnapshot.docs
           .map((doc) => UserModel.fromFirestore(doc))
           .toList();
+
+      if (excludeUserId == null || excludeUserId.isEmpty) {
+        return users;
+      }
+
+      return users.where((user) => user.userId != excludeUserId).toList();
     } catch (e) {
       print('Error searching users: $e');
       rethrow;
@@ -211,6 +357,18 @@ class FirestoreService {
   // Send friend request
   Future<String> sendFriendRequest(String userId, String friendId) async {
     try {
+      if (userId == friendId) {
+        throw Exception('CANNOT_ADD_SELF');
+      }
+
+      final relation = await getFriendRelationStatus(userId, friendId);
+      if (relation == FriendRelationStatus.friends) {
+        throw Exception('ALREADY_FRIENDS');
+      }
+      if (relation == FriendRelationStatus.requestPending) {
+        throw Exception('REQUEST_PENDING');
+      }
+
       final friendRequest = FriendModel(
         friendshipId: '',
         userId: userId,
@@ -230,9 +388,31 @@ class FirestoreService {
   // Accept friend request
   Future<void> acceptFriendRequest(String friendshipId) async {
     try {
-      await _friendsCollection.doc(friendshipId).update({
-        'status': FriendRequestStatus.accepted.name,
-        'acceptedAt': Timestamp.now(),
+      await _db.runTransaction((transaction) async {
+        final friendshipRef = _friendsCollection.doc(friendshipId);
+        final friendshipSnapshot = await transaction.get(friendshipRef);
+        if (!friendshipSnapshot.exists) {
+          throw Exception('FRIEND_REQUEST_NOT_FOUND');
+        }
+
+        final friendshipData =
+            friendshipSnapshot.data() as Map<String, dynamic>? ?? {};
+        final requesterId = (friendshipData['userId'] ?? '').toString();
+        final receiverId = (friendshipData['friendId'] ?? '').toString();
+
+        transaction.update(friendshipRef, {
+          'status': FriendRequestStatus.accepted.name,
+          'acceptedAt': Timestamp.now(),
+        });
+
+        if (requesterId.isNotEmpty && receiverId.isNotEmpty) {
+          transaction.update(_usersCollection.doc(requesterId), {
+            'friendIds': FieldValue.arrayUnion([receiverId]),
+          });
+          transaction.update(_usersCollection.doc(receiverId), {
+            'friendIds': FieldValue.arrayUnion([requesterId]),
+          });
+        }
       });
     } catch (e) {
       print('Error accepting friend request: $e');
@@ -255,7 +435,29 @@ class FirestoreService {
   // Remove friend
   Future<void> removeFriend(String friendshipId) async {
     try {
-      await _friendsCollection.doc(friendshipId).delete();
+      await _db.runTransaction((transaction) async {
+        final friendshipRef = _friendsCollection.doc(friendshipId);
+        final friendshipSnapshot = await transaction.get(friendshipRef);
+        if (!friendshipSnapshot.exists) {
+          return;
+        }
+
+        final friendshipData =
+            friendshipSnapshot.data() as Map<String, dynamic>? ?? {};
+        final requesterId = (friendshipData['userId'] ?? '').toString();
+        final receiverId = (friendshipData['friendId'] ?? '').toString();
+
+        if (requesterId.isNotEmpty && receiverId.isNotEmpty) {
+          transaction.update(_usersCollection.doc(requesterId), {
+            'friendIds': FieldValue.arrayRemove([receiverId]),
+          });
+          transaction.update(_usersCollection.doc(receiverId), {
+            'friendIds': FieldValue.arrayRemove([requesterId]),
+          });
+        }
+
+        transaction.delete(friendshipRef);
+      });
     } catch (e) {
       print('Error removing friend: $e');
       rethrow;
@@ -300,6 +502,96 @@ class FirestoreService {
       return query.docs.isNotEmpty;
     } catch (e) {
       print('Error checking friendship: $e');
+      rethrow;
+    }
+  }
+
+  Future<FriendRelationStatus> getFriendRelationStatus(
+    String userId,
+    String otherUserId,
+  ) async {
+    try {
+      final outgoing = await _friendsCollection
+          .where('userId', isEqualTo: userId)
+          .where('friendId', isEqualTo: otherUserId)
+          .where(
+            'status',
+            whereIn: [
+              FriendRequestStatus.pending.name,
+              FriendRequestStatus.accepted.name,
+            ],
+          )
+          .limit(1)
+          .get();
+
+      if (outgoing.docs.isNotEmpty) {
+        final data = outgoing.docs.first.data() as Map<String, dynamic>;
+        final status = (data['status'] ?? '').toString();
+        if (status == FriendRequestStatus.accepted.name) {
+          return FriendRelationStatus.friends;
+        }
+        return FriendRelationStatus.requestPending;
+      }
+
+      final incoming = await _friendsCollection
+          .where('userId', isEqualTo: otherUserId)
+          .where('friendId', isEqualTo: userId)
+          .where(
+            'status',
+            whereIn: [
+              FriendRequestStatus.pending.name,
+              FriendRequestStatus.accepted.name,
+            ],
+          )
+          .limit(1)
+          .get();
+
+      if (incoming.docs.isNotEmpty) {
+        final data = incoming.docs.first.data() as Map<String, dynamic>;
+        final status = (data['status'] ?? '').toString();
+        if (status == FriendRequestStatus.accepted.name) {
+          return FriendRelationStatus.friends;
+        }
+        return FriendRelationStatus.requestPending;
+      }
+
+      return FriendRelationStatus.none;
+    } catch (e) {
+      print('Error getting friend relation status: $e');
+      rethrow;
+    }
+  }
+
+  Future<String?> getFriendshipIdBetween(
+    String userId,
+    String otherUserId,
+  ) async {
+    try {
+      final outgoing = await _friendsCollection
+          .where('userId', isEqualTo: userId)
+          .where('friendId', isEqualTo: otherUserId)
+          .where('status', isEqualTo: FriendRequestStatus.accepted.name)
+          .limit(1)
+          .get();
+
+      if (outgoing.docs.isNotEmpty) {
+        return outgoing.docs.first.id;
+      }
+
+      final incoming = await _friendsCollection
+          .where('userId', isEqualTo: otherUserId)
+          .where('friendId', isEqualTo: userId)
+          .where('status', isEqualTo: FriendRequestStatus.accepted.name)
+          .limit(1)
+          .get();
+
+      if (incoming.docs.isNotEmpty) {
+        return incoming.docs.first.id;
+      }
+
+      return null;
+    } catch (e) {
+      print('Error getting friendship ID: $e');
       rethrow;
     }
   }
@@ -464,4 +756,179 @@ class FirestoreService {
       rethrow;
     }
   }
+
+  Future<List<UserModel>> getUsersByIds(List<String> userIds) async {
+    if (userIds.isEmpty) {
+      return [];
+    }
+
+    final uniqueIds = userIds.toSet().toList();
+    final users = <UserModel>[];
+
+    for (var i = 0; i < uniqueIds.length; i += 10) {
+      final end = (i + 10 < uniqueIds.length) ? i + 10 : uniqueIds.length;
+      final chunk = uniqueIds.sublist(i, end);
+      final query = await _usersCollection
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      users.addAll(query.docs.map((doc) => UserModel.fromFirestore(doc)));
+    }
+
+    return users;
+  }
+
+  Stream<List<PactModel>> streamPactsForVerifier(String verifierId) {
+    return _pactsCollection
+        .where('verifierId', isEqualTo: verifierId)
+        .orderBy('deadline', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => PactModel.fromFirestore(doc)).toList(),
+        );
+  }
+
+  // CHAT OPERATIONS
+
+  String getChatId(String userIdA, String userIdB) {
+    final sorted = [userIdA, userIdB]..sort();
+    return '${sorted[0]}__${sorted[1]}';
+  }
+
+  Stream<List<ChatMessageModel>> streamChatMessages({
+    required String currentUserId,
+    required String friendUserId,
+  }) {
+    final chatId = getChatId(currentUserId, friendUserId);
+    return _chatsCollection
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('createdAt', descending: true)
+        .limit(200)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => ChatMessageModel.fromFirestore(doc))
+              .toList(),
+        );
+  }
+
+  Stream<int> streamUnreadMessageCount({
+    required String currentUserId,
+    required String friendUserId,
+  }) {
+    final chatId = getChatId(currentUserId, friendUserId);
+    return _chatsCollection.doc(chatId).snapshots().map((doc) {
+      if (!doc.exists) {
+        return 0;
+      }
+
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final unreadCounts = data['unreadCounts'] as Map<String, dynamic>?;
+      if (unreadCounts == null) {
+        return 0;
+      }
+
+      final rawCount = unreadCounts[currentUserId];
+      if (rawCount is int) {
+        return rawCount;
+      }
+      if (rawCount is num) {
+        return rawCount.toInt();
+      }
+      return 0;
+    });
+  }
+
+  Future<void> sendMessage({
+    required String senderId,
+    required String recipientId,
+    required String text,
+  }) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    final chatId = getChatId(senderId, recipientId);
+    final chatRef = _chatsCollection.doc(chatId);
+    final messageRef = chatRef.collection('messages').doc();
+    final now = Timestamp.now();
+
+    await _db.runTransaction((transaction) async {
+      final chatSnapshot = await transaction.get(chatRef);
+
+      if (!chatSnapshot.exists) {
+        transaction.set(chatRef, {
+          'participants': [senderId, recipientId],
+          'createdAt': now,
+          'updatedAt': now,
+          'lastMessage': trimmed,
+          'lastMessageAt': now,
+          'lastSenderId': senderId,
+          'unreadCounts': {senderId: 0, recipientId: 1},
+        });
+      } else {
+        transaction.update(chatRef, {
+          'participants': [senderId, recipientId],
+          'updatedAt': now,
+          'lastMessage': trimmed,
+          'lastMessageAt': now,
+          'lastSenderId': senderId,
+          'unreadCounts.$senderId': 0,
+          'unreadCounts.$recipientId': FieldValue.increment(1),
+        });
+      }
+
+      final message = ChatMessageModel(
+        messageId: messageRef.id,
+        chatId: chatId,
+        senderId: senderId,
+        recipientId: recipientId,
+        text: trimmed,
+        createdAt: DateTime.now(),
+        readBy: [senderId],
+      );
+
+      transaction.set(messageRef, message.toFirestore());
+    });
+  }
+
+  Future<void> markConversationAsRead({
+    required String currentUserId,
+    required String friendUserId,
+  }) async {
+    final chatId = getChatId(currentUserId, friendUserId);
+    final chatRef = _chatsCollection.doc(chatId);
+
+    final recentMessages = await chatRef
+        .collection('messages')
+        .orderBy('createdAt', descending: true)
+        .limit(200)
+        .get();
+
+    final batch = _db.batch();
+
+    for (final doc in recentMessages.docs) {
+      final data = doc.data();
+      final recipientId = (data['recipientId'] ?? '').toString();
+      final readBy = List<String>.from(data['readBy'] ?? const <String>[]);
+
+      if (recipientId == currentUserId && !readBy.contains(currentUserId)) {
+        batch.update(doc.reference, {
+          'readBy': FieldValue.arrayUnion([currentUserId]),
+        });
+      }
+    }
+
+    batch.set(chatRef, {
+      'participants': [currentUserId, friendUserId],
+      'updatedAt': Timestamp.now(),
+      'unreadCounts.$currentUserId': 0,
+    }, SetOptions(merge: true));
+
+    await batch.commit();
+  }
 }
+
+enum FriendRelationStatus { none, requestPending, friends }

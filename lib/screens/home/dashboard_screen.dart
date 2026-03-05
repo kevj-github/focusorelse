@@ -6,14 +6,20 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../models/friend_model.dart';
 import '../../models/pact_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
 import '../../providers/post_provider.dart';
+import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
 import '../create_pact/create_pact_screen.dart';
+import '../friends/friends_tab_view.dart';
 import '../profile/profile_screen.dart';
+import '../settings/settings_screen.dart';
 import '../../theme/colors.dart';
+import '../../widgets/common/avatar.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -25,6 +31,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  final FirestoreService _firestoreService = FirestoreService();
+  final GlobalKey _notificationIconKey = GlobalKey();
 
   @override
   void initState() {
@@ -318,12 +326,364 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  Future<void> _openNotificationsPopup() async {
+    final authProvider = context.read<AuthProvider>();
+    final userId =
+        authProvider.userModel?.userId ?? authProvider.firebaseUser?.uid;
+
+    if (userId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Sign in to view notifications.'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
+    final processingIds = <String>{};
+    final iconContext = _notificationIconKey.currentContext;
+    if (iconContext == null) {
+      return;
+    }
+
+    final iconRenderBox = iconContext.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(context).context.findRenderObject() as RenderBox?;
+    if (iconRenderBox == null || overlayBox == null) {
+      return;
+    }
+
+    final iconOffset = iconRenderBox.localToGlobal(
+      Offset.zero,
+      ancestor: overlayBox,
+    );
+    final iconSize = iconRenderBox.size;
+    final overlaySize = overlayBox.size;
+    const popupWidth = 320.0;
+    const horizontalPadding = 8.0;
+
+    final popupLeft = (iconOffset.dx + iconSize.width - popupWidth).clamp(
+      horizontalPadding,
+      overlaySize.width - popupWidth - horizontalPadding,
+    );
+    final popupTop = iconOffset.dy + iconSize.height + 6;
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.transparent,
+      builder: (sheetContext) {
+        final isDark = Theme.of(sheetContext).brightness == Brightness.dark;
+        final onSurface = Theme.of(sheetContext).colorScheme.onSurface;
+        final secondary = isDark
+            ? AppColors.textSecondaryDark
+            : AppColors.textSecondaryLight;
+
+        return StatefulBuilder(
+          builder: (sheetContext, setModalState) {
+            Future<void> handleRequestAction(
+              FriendModel request,
+              bool accept,
+            ) async {
+              if (processingIds.contains(request.friendshipId)) {
+                return;
+              }
+
+              setModalState(() {
+                processingIds.add(request.friendshipId);
+              });
+
+              try {
+                if (accept) {
+                  await _firestoreService.acceptFriendRequest(
+                    request.friendshipId,
+                  );
+                } else {
+                  await _firestoreService.declineFriendRequest(
+                    request.friendshipId,
+                  );
+                }
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      accept
+                          ? 'Friend request accepted.'
+                          : 'Friend request declined.',
+                    ),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              } catch (_) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      accept
+                          ? 'Unable to accept friend request right now.'
+                          : 'Unable to decline friend request right now.',
+                    ),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              } finally {
+                if (sheetContext.mounted) {
+                  setModalState(() {
+                    processingIds.remove(request.friendshipId);
+                  });
+                }
+              }
+            }
+
+            return Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => Navigator.of(sheetContext).pop(),
+                  ),
+                ),
+                Positioned(
+                  left: popupLeft,
+                  top: popupTop,
+                  width: popupWidth,
+                  child: Material(
+                    color: Theme.of(context).colorScheme.surface,
+                    elevation: 12,
+                    borderRadius: BorderRadius.circular(14),
+                    clipBehavior: Clip.antiAlias,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 430),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                        child: StreamBuilder<List<FriendModel>>(
+                          stream: _firestoreService.streamPendingFriendRequests(
+                            userId,
+                          ),
+                          builder: (context, pendingSnapshot) {
+                            if (pendingSnapshot.connectionState ==
+                                ConnectionState.waiting) {
+                              return const SizedBox(
+                                height: 220,
+                                child: Center(
+                                  child: CircularProgressIndicator(
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final pendingRequests =
+                                pendingSnapshot.data ?? const <FriendModel>[];
+                            if (pendingRequests.isEmpty) {
+                              return SizedBox(
+                                height: 220,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.notifications_none_outlined,
+                                      color: secondary,
+                                      size: 26,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'No notifications yet.',
+                                      style: TextStyle(color: secondary),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }
+
+                            final requesterIds = pendingRequests
+                                .map((request) => request.userId)
+                                .toSet()
+                                .toList();
+
+                            return FutureBuilder<List<UserModel>>(
+                              future: _firestoreService.getUsersByIds(
+                                requesterIds,
+                              ),
+                              builder: (context, usersSnapshot) {
+                                final users =
+                                    usersSnapshot.data ?? const <UserModel>[];
+                                final usersById = <String, UserModel>{
+                                  for (final user in users) user.userId: user,
+                                };
+
+                                return Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Notifications',
+                                      style: TextStyle(
+                                        color: onSurface,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Flexible(
+                                      child: ListView.separated(
+                                        shrinkWrap: true,
+                                        itemCount: pendingRequests.length,
+                                        separatorBuilder: (_, __) =>
+                                            const SizedBox(height: 10),
+                                        itemBuilder: (context, index) {
+                                          final request =
+                                              pendingRequests[index];
+                                          final requester =
+                                              usersById[request.userId];
+                                          final senderName =
+                                              requester?.displayName ??
+                                              requester?.username ??
+                                              'A user';
+                                          final senderUsername =
+                                              (requester?.username ?? '')
+                                                  .trim();
+                                          final isProcessing = processingIds
+                                              .contains(request.friendshipId);
+
+                                          return Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .surfaceContainerHighest,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: Row(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                AppAvatar(
+                                                  imageUrl: requester
+                                                      ?.profilePictureUrl,
+                                                  radius: 18,
+                                                ),
+                                                const SizedBox(width: 10),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      Text(
+                                                        '$senderName sent you a friend request.',
+                                                        style: TextStyle(
+                                                          color: onSurface,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                      if (senderUsername
+                                                          .isNotEmpty)
+                                                        Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                top: 2,
+                                                              ),
+                                                          child: Text(
+                                                            '@$senderUsername',
+                                                            style: TextStyle(
+                                                              color: secondary,
+                                                              fontSize: 12,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      const SizedBox(height: 8),
+                                                      Row(
+                                                        children: [
+                                                          TextButton(
+                                                            onPressed:
+                                                                isProcessing
+                                                                ? null
+                                                                : () =>
+                                                                      handleRequestAction(
+                                                                        request,
+                                                                        false,
+                                                                      ),
+                                                            child: const Text(
+                                                              'Decline',
+                                                            ),
+                                                          ),
+                                                          const SizedBox(
+                                                            width: 6,
+                                                          ),
+                                                          ElevatedButton(
+                                                            onPressed:
+                                                                isProcessing
+                                                                ? null
+                                                                : () =>
+                                                                      handleRequestAction(
+                                                                        request,
+                                                                        true,
+                                                                      ),
+                                                            style: ElevatedButton.styleFrom(
+                                                              backgroundColor:
+                                                                  AppColors
+                                                                      .success,
+                                                              foregroundColor:
+                                                                  Colors.white,
+                                                              minimumSize:
+                                                                  const Size(
+                                                                    0,
+                                                                    34,
+                                                                  ),
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    horizontal:
+                                                                        12,
+                                                                  ),
+                                                            ),
+                                                            child: Text(
+                                                              isProcessing
+                                                                  ? '...'
+                                                                  : 'Accept',
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         title: const Text(
           'Focus or Else',
@@ -335,24 +695,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Notifications feature coming soon.'),
-                  backgroundColor: AppColors.primary,
-                ),
-              );
-            },
+            key: _notificationIconKey,
+            icon: Icon(Icons.notifications_outlined, color: onSurface),
+            onPressed: _openNotificationsPopup,
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Colors.white),
+            icon: Icon(Icons.settings_outlined, color: onSurface),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('In-app settings editor coming later.'),
-                  backgroundColor: AppColors.primary,
-                ),
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
               );
             },
           ),
@@ -381,21 +732,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildFeedView() {
-    return const Center(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+
+    return Center(
       child: Text(
         'Feed View - Coming Soon',
-        style: TextStyle(color: Colors.white, fontSize: 18),
+        style: TextStyle(color: secondary, fontSize: 18),
       ),
     );
   }
 
   Widget _buildFriendsView() {
-    return const Center(
-      child: Text(
-        'Friends View - Coming Soon',
-        style: TextStyle(color: Colors.white, fontSize: 18),
-      ),
-    );
+    return FriendsTabView();
   }
 }
 

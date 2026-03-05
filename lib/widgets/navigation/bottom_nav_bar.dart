@@ -15,10 +15,14 @@ class AppBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = Theme.of(context).scaffoldBackgroundColor;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: AppColors.darkBorder)),
-        color: AppColors.darkBackground,
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: borderColor)),
+        color: background,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       child: SafeArea(
@@ -91,7 +95,11 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? AppColors.primary : AppColors.textSecondaryDark;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+    final color = selected ? AppColors.primary : secondary;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),

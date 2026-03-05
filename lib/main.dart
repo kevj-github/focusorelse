@@ -9,6 +9,7 @@ import 'theme/colors.dart';
 import 'providers/auth_provider.dart';
 import 'providers/pact_provider.dart';
 import 'providers/post_provider.dart';
+import 'providers/theme_provider.dart';
 import 'screens/auth/forgot_password_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
@@ -49,20 +50,23 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => PactProvider()),
         ChangeNotifierProvider(create: (_) => PostProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
       ],
-      child: MaterialApp(
-        title: 'Focus or Else',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark(),
-        darkTheme: AppTheme.dark(),
-        themeMode: ThemeMode.dark,
-        routes: {
-          '/login': (_) => const LoginScreen(),
-          '/signup': (_) => const SignupScreen(),
-          '/forgot-password': (_) => const ForgotPasswordScreen(),
-          '/home': (_) => const DashboardScreen(),
-        },
-        home: const AuthWrapper(),
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, _) => MaterialApp(
+          title: 'Focus or Else',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.light(),
+          darkTheme: AppTheme.dark(),
+          themeMode: themeProvider.themeMode,
+          routes: {
+            '/login': (_) => const LoginScreen(),
+            '/signup': (_) => const SignupScreen(),
+            '/forgot-password': (_) => const ForgotPasswordScreen(),
+            '/home': (_) => const DashboardScreen(),
+          },
+          home: const AuthWrapper(),
+        ),
       ),
     );
   }
@@ -76,10 +80,10 @@ class AuthWrapper extends StatelessWidget {
     final authProvider = Provider.of<AuthProvider>(context);
 
     if (authProvider.isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.darkBackground,
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Center(
-          child: CircularProgressIndicator(color: AppColors.primary),
+          child: const CircularProgressIndicator(color: AppColors.primary),
         ),
       );
     }

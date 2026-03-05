@@ -94,6 +94,7 @@ class AuthService {
     String email,
     String password,
     String displayName,
+    String username,
   ) async {
     try {
       final UserCredential userCredential = await _auth
@@ -106,7 +107,12 @@ class AuthService {
       // Don't let Firestore errors prevent successful authentication
       if (userCredential.user != null) {
         try {
-          await _createOrUpdateUser(userCredential.user!);
+          await reserveUsernameForNewUser(
+            userId: userCredential.user!.uid,
+            email: userCredential.user!.email ?? email,
+            username: username,
+            displayName: displayName,
+          );
         } catch (firestoreError) {
           print(
             'Warning: Firestore operation failed, but user is authenticated: $firestoreError',
@@ -138,22 +144,82 @@ class AuthService {
       final existingUser = await _firestoreService.getUser(firebaseUser.uid);
 
       if (existingUser == null) {
+        final preferredName =
+            firebaseUser.displayName?.trim().isNotEmpty == true
+            ? firebaseUser.displayName!.trim()
+            : firebaseUser.email?.split('@').first ?? 'focususer';
+        final generatedUsername = await _firestoreService
+            .generateUniqueUsername(preferredName);
+
         // Create new user
         final newUser = UserModel.create(
           userId: firebaseUser.uid,
           email: firebaseUser.email ?? '',
+          username: generatedUsername,
           displayName: firebaseUser.displayName,
         );
         await _firestoreService.createUser(newUser);
       } else {
-        // Update last login time
+        var ensuredUsername = existingUser.username;
+        if ((ensuredUsername ?? '').trim().isEmpty) {
+          final preferredName =
+              firebaseUser.displayName?.trim().isNotEmpty == true
+              ? firebaseUser.displayName!.trim()
+              : firebaseUser.email?.split('@').first ?? 'focususer';
+          ensuredUsername = await _firestoreService.generateUniqueUsername(
+            preferredName,
+            excludeUserId: existingUser.userId,
+          );
+        }
+
+        // Update last login time and ensure username exists
         final updatedUser = existingUser.copyWith(lastLoginAt: DateTime.now());
-        await _firestoreService.updateUser(updatedUser);
+        await _firestoreService.updateUser(
+          updatedUser.copyWith(username: ensuredUsername),
+        );
       }
     } catch (e) {
       print('Error creating/updating user: $e');
       rethrow;
     }
+  }
+
+  Future<bool> isUsernameAvailable(String username, {String? excludeUserId}) {
+    return _firestoreService.isUsernameAvailable(
+      username,
+      excludeUserId: excludeUserId,
+    );
+  }
+
+  Future<void> reserveUsernameForNewUser({
+    required String userId,
+    required String email,
+    required String username,
+    String? displayName,
+  }) async {
+    final uniqueUsername = await _firestoreService.generateUniqueUsername(
+      username,
+      excludeUserId: userId,
+    );
+
+    final existingUser = await _firestoreService.getUser(userId);
+    if (existingUser == null) {
+      final newUser = UserModel.create(
+        userId: userId,
+        email: email,
+        username: uniqueUsername,
+        displayName: displayName,
+      );
+      await _firestoreService.createUser(newUser);
+      return;
+    }
+
+    final updatedUser = existingUser.copyWith(
+      username: uniqueUsername,
+      displayName: displayName ?? existingUser.displayName,
+      lastLoginAt: DateTime.now(),
+    );
+    await _firestoreService.updateUser(updatedUser);
   }
 
   // Reset password

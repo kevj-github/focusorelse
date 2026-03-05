@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -21,6 +22,27 @@ import '../../widgets/common/avatar.dart';
 enum _StatsInterval { week, month, threeMonths }
 
 enum _ChartMode { completed, failed, both }
+
+Color _surfaceColor(BuildContext context) =>
+    Theme.of(context).colorScheme.surface;
+
+Color _surfaceVariantColor(BuildContext context) =>
+    Theme.of(context).colorScheme.surfaceContainerHighest;
+
+Color _onSurfaceColor(BuildContext context) =>
+    Theme.of(context).colorScheme.onSurface;
+
+Color _secondaryTextColor(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark
+      ? AppColors.textSecondaryDark
+      : AppColors.textSecondaryLight;
+}
+
+Color _borderColor(BuildContext context) {
+  return Theme.of(context).brightness == Brightness.dark
+      ? AppColors.darkBorder
+      : AppColors.lightBorder;
+}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, this.onRetry});
@@ -89,27 +111,20 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: AppColors.darkSurface,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.darkBorder),
+                child: TabBar(
+                  controller: _tabController,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  dividerColor: Colors.transparent,
+                  labelColor: _onSurfaceColor(context),
+                  unselectedLabelColor: _secondaryTextColor(context),
+                  indicator: const UnderlineTabIndicator(
+                    borderSide: BorderSide(color: AppColors.primary, width: 3),
+                    insets: EdgeInsets.symmetric(horizontal: 28),
                   ),
-                  child: TabBar(
-                    controller: _tabController,
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: AppColors.textSecondaryDark,
-                    indicator: const BoxDecoration(
-                      color: AppColors.primary,
-                      borderRadius: BorderRadius.all(Radius.circular(10)),
-                    ),
-                    tabs: const [
-                      Tab(text: 'Posts'),
-                      Tab(text: 'Stats'),
-                    ],
-                  ),
+                  tabs: const [
+                    Tab(text: 'Posts'),
+                    Tab(text: 'Stats'),
+                  ],
                 ),
               ),
               Expanded(
@@ -133,6 +148,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     AuthProvider authProvider,
     UserModel user,
   ) async {
+    final displayNameController = TextEditingController(
+      text: user.displayName ?? '',
+    );
     final usernameController = TextEditingController(text: user.username ?? '');
     final bioController = TextEditingController(text: user.bio ?? '');
     final picker = ImagePicker();
@@ -142,11 +160,21 @@ class _ProfileScreenState extends State<ProfileScreen>
     bool isUploadingPhoto = false;
     bool isSaving = false;
     bool sheetActive = true;
+    bool isCheckingUsername = false;
+    bool? usernameAvailable;
+    String? usernameError;
+    Timer? usernameDebounce;
+
+    String normalizeUsername(String input) {
+      final lower = input.trim().toLowerCase();
+      final withoutPrefix = lower.startsWith('@') ? lower.substring(1) : lower;
+      return withoutPrefix.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    }
 
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: _surfaceVariantColor(context),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -211,15 +239,47 @@ class _ProfileScreenState extends State<ProfileScreen>
             }
 
             Future<void> saveChanges() async {
+              final normalizedUsername = normalizeUsername(
+                usernameController.text,
+              );
+              final trimmedDisplayName = displayNameController.text.trim();
+
+              if (trimmedDisplayName.isEmpty) {
+                setModalState(() {
+                  usernameError = 'Display name is required.';
+                });
+                return;
+              }
+
+              if (normalizedUsername.length < 3) {
+                setModalState(() {
+                  usernameError =
+                      'Username must be at least 3 characters long.';
+                });
+                return;
+              }
+
+              final isAvailable = await authProvider.isUsernameAvailable(
+                normalizedUsername,
+                excludeUserId: user.userId,
+              );
+              if (!isAvailable) {
+                setModalState(() {
+                  usernameError = 'Username is already taken.';
+                  usernameAvailable = false;
+                });
+                return;
+              }
+
               if (!context.mounted || !sheetActive) return;
               setModalState(() {
                 isSaving = true;
+                usernameError = null;
               });
 
               final updated = user.copyWith(
-                username: usernameController.text.trim().isEmpty
-                    ? user.username
-                    : usernameController.text.trim(),
+                displayName: trimmedDisplayName,
+                username: normalizedUsername,
                 bio: bioController.text.trim(),
                 profilePictureUrl: uploadedPhotoUrl,
               );
@@ -252,10 +312,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Edit Profile',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: _onSurfaceColor(context),
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -281,10 +341,87 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                     const SizedBox(height: 12),
                     AppInput(
-                      controller: usernameController,
-                      label: 'Username',
-                      hintText: 'Enter your username',
+                      controller: displayNameController,
+                      label: 'Display Name',
+                      hintText: 'How others will see your name',
                     ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: usernameController,
+                      style: TextStyle(color: _onSurfaceColor(context)),
+                      onChanged: (value) {
+                        final normalized = normalizeUsername(value);
+                        if (value != normalized) {
+                          usernameController.value = usernameController.value
+                              .copyWith(
+                                text: normalized,
+                                selection: TextSelection.collapsed(
+                                  offset: normalized.length,
+                                ),
+                              );
+                        }
+
+                        usernameDebounce?.cancel();
+                        if (normalized.length < 3) {
+                          setModalState(() {
+                            isCheckingUsername = false;
+                            usernameAvailable = null;
+                            usernameError = normalized.isEmpty
+                                ? null
+                                : 'Username must be at least 3 characters long.';
+                          });
+                          return;
+                        }
+
+                        setModalState(() {
+                          isCheckingUsername = true;
+                          usernameError = null;
+                        });
+
+                        usernameDebounce = Timer(
+                          const Duration(milliseconds: 450),
+                          () async {
+                            final isAvailable = await authProvider
+                                .isUsernameAvailable(
+                                  normalized,
+                                  excludeUserId: user.userId,
+                                );
+
+                            if (!context.mounted || !sheetActive) return;
+                            setModalState(() {
+                              isCheckingUsername = false;
+                              usernameAvailable = isAvailable;
+                              usernameError = isAvailable
+                                  ? null
+                                  : 'Username is already taken.';
+                            });
+                          },
+                        );
+                      },
+                      decoration: const InputDecoration(
+                        labelText: 'Username',
+                        hintText: 'lowercase, numbers, underscore',
+                      ),
+                    ),
+                    if (isCheckingUsername ||
+                        usernameError != null ||
+                        usernameAvailable == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 4),
+                        child: Text(
+                          isCheckingUsername
+                              ? 'Checking username...'
+                              : (usernameError ?? 'Username is available.'),
+                          style: TextStyle(
+                            color: isCheckingUsername
+                                ? _secondaryTextColor(context)
+                                : (usernameError != null
+                                      ? AppColors.primary
+                                      : AppColors.accent),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 12),
                     AppInput(
                       controller: bioController,
@@ -306,6 +443,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         );
       },
     ).whenComplete(() {
+      usernameDebounce?.cancel();
       sheetActive = false;
     });
   }
@@ -336,8 +474,8 @@ class _ProfileHeader extends StatelessWidget {
                     user.displayName ?? user.username ?? 'Focus User',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: _onSurfaceColor(context),
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
@@ -348,8 +486,8 @@ class _ProfileHeader extends StatelessWidget {
                       '@${user.username}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryDark,
+                      style: TextStyle(
+                        color: _secondaryTextColor(context),
                         fontSize: 12,
                       ),
                     ),
@@ -361,8 +499,8 @@ class _ProfileHeader extends StatelessWidget {
                         : user.bio!.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.textSecondaryDark,
+                    style: TextStyle(
+                      color: _secondaryTextColor(context),
                       fontSize: 12,
                     ),
                   ),
@@ -373,8 +511,8 @@ class _ProfileHeader extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: onEditProfile,
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: AppColors.darkBorder),
-                foregroundColor: Colors.white,
+                side: BorderSide(color: _borderColor(context)),
+                foregroundColor: _onSurfaceColor(context),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 8,
@@ -552,10 +690,10 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Pact Summary',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _onSurfaceColor(context),
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -563,10 +701,10 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
               const SizedBox(height: 12),
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Interval',
                     style: TextStyle(
-                      color: AppColors.textSecondaryDark,
+                      color: _secondaryTextColor(context),
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -582,24 +720,20 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
                           vertical: 10,
                         ),
                         filled: true,
-                        fillColor: AppColors.darkBackground,
+                        fillColor: _surfaceColor(context),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: AppColors.darkBorder,
-                          ),
+                          borderSide: BorderSide(color: _borderColor(context)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
-                          borderSide: const BorderSide(
-                            color: AppColors.darkBorder,
-                          ),
+                          borderSide: BorderSide(color: _borderColor(context)),
                         ),
                       ),
-                      dropdownColor: AppColors.darkSurface,
-                      iconEnabledColor: AppColors.textSecondaryDark,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      dropdownColor: _surfaceVariantColor(context),
+                      iconEnabledColor: _secondaryTextColor(context),
+                      style: TextStyle(
+                        color: _onSurfaceColor(context),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -708,12 +842,12 @@ class _PactSummaryChart extends StatelessWidget {
     final points = _buildPoints();
 
     if (points.isEmpty) {
-      return const SizedBox(
+      return SizedBox(
         height: 160,
         child: Center(
           child: Text(
             'No data for selected filter.',
-            style: TextStyle(color: AppColors.textSecondaryDark),
+            style: TextStyle(color: _secondaryTextColor(context)),
           ),
         ),
       );
@@ -759,8 +893,8 @@ class _PactSummaryChart extends StatelessWidget {
                 children: [
                   Text(
                     '$modeValue',
-                    style: const TextStyle(
-                      color: AppColors.textSecondaryDark,
+                    style: TextStyle(
+                      color: _secondaryTextColor(context),
                       fontSize: 11,
                     ),
                   ),
@@ -795,8 +929,8 @@ class _PactSummaryChart extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     p.label,
-                    style: const TextStyle(
-                      color: AppColors.textSecondaryDark,
+                    style: TextStyle(
+                      color: _secondaryTextColor(context),
                       fontSize: 11,
                     ),
                   ),
@@ -906,16 +1040,13 @@ class _MetricBlock extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
-            color: AppColors.textSecondaryDark,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: _secondaryTextColor(context), fontSize: 12),
         ),
         const SizedBox(height: 6),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: _onSurfaceColor(context),
             fontSize: 26,
             fontWeight: FontWeight.w800,
           ),
@@ -923,10 +1054,7 @@ class _MetricBlock extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           subtitle,
-          style: const TextStyle(
-            color: AppColors.textSecondaryDark,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: _secondaryTextColor(context), fontSize: 12),
         ),
       ],
     );
@@ -952,14 +1080,14 @@ class _ChoiceChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.darkBackground,
+          color: selected ? AppColors.primary : _surfaceColor(context),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.darkBorder),
+          border: Border.all(color: _borderColor(context)),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.white : AppColors.textSecondaryDark,
+            color: selected ? Colors.white : _secondaryTextColor(context),
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
@@ -987,10 +1115,7 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.textSecondaryDark,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: _secondaryTextColor(context), fontSize: 12),
         ),
       ],
     );
@@ -1008,18 +1133,18 @@ class _ProfileLoadingState extends StatelessWidget {
         Container(
           height: 260,
           decoration: BoxDecoration(
-            color: AppColors.darkSurface,
+            color: _surfaceVariantColor(context),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.darkBorder),
+            border: Border.all(color: _borderColor(context)),
           ),
         ),
         const SizedBox(height: 16),
         Container(
           height: 240,
           decoration: BoxDecoration(
-            color: AppColors.darkSurface,
+            color: _surfaceVariantColor(context),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.darkBorder),
+            border: Border.all(color: _borderColor(context)),
           ),
         ),
       ],
@@ -1047,17 +1172,17 @@ class _ProfileEmptyState extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.photo_library_outlined,
-                      color: AppColors.textSecondaryDark,
+                      color: _secondaryTextColor(context),
                       size: 34,
                     ),
                     const SizedBox(height: 10),
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: _onSurfaceColor(context),
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1066,8 +1191,8 @@ class _ProfileEmptyState extends StatelessWidget {
                     Text(
                       subtitle,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryDark,
+                      style: TextStyle(
+                        color: _secondaryTextColor(context),
                         fontSize: 13,
                       ),
                     ),
@@ -1111,7 +1236,10 @@ class _ProfileErrorState extends StatelessWidget {
                     Text(
                       message,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      style: TextStyle(
+                        color: _onSurfaceColor(context),
+                        fontSize: 14,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (onRetry != null)
@@ -1144,10 +1272,10 @@ class _PostGridTile extends StatelessWidget {
         child: Image.network(
           post.imageUrl,
           fit: BoxFit.cover,
-          errorBuilder: (_, _, _) => const Center(
+          errorBuilder: (_, _, _) => Center(
             child: Icon(
               Icons.image_not_supported_outlined,
-              color: AppColors.textSecondaryDark,
+              color: _secondaryTextColor(context),
             ),
           ),
         ),
@@ -1192,10 +1320,10 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
         final avatarUrl = _resolvedAvatarUrl(currentPost);
 
         return Scaffold(
-          backgroundColor: AppColors.darkBackground,
+          backgroundColor: _surfaceColor(context),
           appBar: AppBar(
-            backgroundColor: AppColors.darkBackground,
-            foregroundColor: Colors.white,
+            backgroundColor: _surfaceColor(context),
+            foregroundColor: _onSurfaceColor(context),
             elevation: 0,
             titleSpacing: 0,
             title: Text(
@@ -1228,16 +1356,16 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                             Expanded(
                               child: Text(
                                 username,
-                                style: const TextStyle(
-                                  color: Colors.white,
+                                style: TextStyle(
+                                  color: _onSurfaceColor(context),
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               Icons.more_horiz,
-                              color: AppColors.textSecondaryDark,
+                              color: _secondaryTextColor(context),
                             ),
                           ],
                         ),
@@ -1252,11 +1380,11 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                             currentPost.imageUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => Container(
-                              color: AppColors.darkSurface,
+                              color: _surfaceVariantColor(context),
                               alignment: Alignment.center,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.broken_image_outlined,
-                                color: AppColors.textSecondaryDark,
+                                color: _secondaryTextColor(context),
                               ),
                             ),
                           ),
@@ -1332,8 +1460,8 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                                     color: isLiked
                                         ? AppColors.primary
                                         : (_isTogglingLike
-                                              ? AppColors.textSecondaryDark
-                                              : Colors.white),
+                                              ? _secondaryTextColor(context)
+                                              : _onSurfaceColor(context)),
                                     size: 26,
                                   ),
                                 );
@@ -1347,9 +1475,9 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                                 minHeight: 44,
                                 minWidth: 44,
                               ),
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.mode_comment_outlined,
-                                color: Colors.white,
+                                color: _onSurfaceColor(context),
                                 size: 24,
                               ),
                             ),
@@ -1360,8 +1488,8 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                         padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                         child: Text(
                           '${currentPost.likeCount} likes',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: _onSurfaceColor(context),
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
@@ -1371,8 +1499,8 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                         padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
                         child: RichText(
                           text: TextSpan(
-                            style: const TextStyle(
-                              color: Colors.white,
+                            style: TextStyle(
+                              color: _onSurfaceColor(context),
                               fontSize: 13,
                             ),
                             children: [
@@ -1391,16 +1519,16 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                         padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
                         child: Text(
                           _formatPostAge(currentPost.createdAt),
-                          style: const TextStyle(
-                            color: AppColors.textSecondaryDark,
+                          style: TextStyle(
+                            color: _secondaryTextColor(context),
                             fontSize: 11,
                             letterSpacing: 0.4,
                           ),
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Divider(
-                        color: AppColors.darkBorder,
+                      Divider(
+                        color: _borderColor(context),
                         height: 1,
                         thickness: 1,
                       ),
@@ -1412,12 +1540,12 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                           final comments = commentSnapshot.data ?? const [];
 
                           if (comments.isEmpty) {
-                            return const Padding(
+                            return Padding(
                               padding: EdgeInsets.fromLTRB(12, 12, 12, 4),
                               child: Text(
                                 'No comments yet. Start the conversation.',
                                 style: TextStyle(
-                                  color: AppColors.textSecondaryDark,
+                                  color: _secondaryTextColor(context),
                                   fontSize: 13,
                                 ),
                               ),
@@ -1453,8 +1581,8 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                                   Expanded(
                                     child: RichText(
                                       text: TextSpan(
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: _onSurfaceColor(context),
                                           fontSize: 13,
                                         ),
                                         children: [
@@ -1480,10 +1608,10 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                   ),
                 ),
                 Container(
-                  decoration: const BoxDecoration(
-                    color: AppColors.darkSurface,
+                  decoration: BoxDecoration(
+                    color: _surfaceVariantColor(context),
                     border: Border(
-                      top: BorderSide(color: AppColors.darkBorder),
+                      top: BorderSide(color: _borderColor(context)),
                     ),
                   ),
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -1500,11 +1628,11 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                           focusNode: _commentFocusNode,
                           minLines: 1,
                           maxLines: 3,
-                          style: const TextStyle(color: Colors.white),
-                          decoration: const InputDecoration(
+                          style: TextStyle(color: _onSurfaceColor(context)),
+                          decoration: InputDecoration(
                             hintText: 'Add a comment...',
                             hintStyle: TextStyle(
-                              color: AppColors.textSecondaryDark,
+                              color: _secondaryTextColor(context),
                             ),
                             isDense: true,
                             border: InputBorder.none,

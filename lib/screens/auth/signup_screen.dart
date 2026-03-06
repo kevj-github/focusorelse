@@ -134,13 +134,15 @@ class _SignupScreenState extends State<SignupScreen> {
     final secondary = isDark
         ? AppColors.textSecondaryDark
         : AppColors.textSecondaryLight;
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Create account')),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+        child: SingleChildScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + keyboardInset),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [

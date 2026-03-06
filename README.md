@@ -1,147 +1,169 @@
 # Focus or Else (FoE)
 
-A social accountability mobile app built with Flutter. Stay accountable to your goals with friends as verifiers and real consequences.
+Focus or Else is a social accountability app built with Flutter and Firebase.
+Users create pacts, stay accountable with friends, share progress, and message friends directly.
 
-## 🚀 Features
+## Features
 
-- **Social Accountability**: Create pacts with friends as verifiers
-- **Real Consequences**: Set meaningful consequences for failed goals
-- **Evidence Submission**: Photo, video, and text proof of completion
-- **Live Countdown Timers**: Track deadlines in real-time
-- **Social Feed**: See friends' pact completions and consequences
-- **Google OAuth**: Secure authentication
-- **Push Notifications**: Stay on track with timely reminders
+### Authentication and Identity
 
-## 📋 Prerequisites
+- Google sign-in and email/password sign-in/up
+- Username + display name identity model
+- Username uniqueness enforcement in Firestore (`usernames` collection)
 
-- Flutter SDK (3.9.2 or higher)
-- Dart SDK
-- Firebase account
-- Android Studio / Xcode (for mobile development)
-- Git
+### Pacts
 
-## 🔧 Setup Instructions
+- Create pacts with category, deadline, verification method, and consequences
+- Friend verification and pact review flow
+- Active/expired pact tracking and stats
 
-### 1. Clone the Repository
+### Friends
+
+- Search users by username and send friend requests
+- Incoming friend request section with accept/decline
+- Friend cards with pact status labels and quick actions
+- Friend profile view with Message and Unfriend actions
+
+### Messaging
+
+- 1:1 chat between friends
+- Real-time message stream
+- Per-friend unread badge count on messaging icon
+
+### Profile and Posts
+
+- Editable user profile (display name, username, bio, avatar)
+- Post creation with image upload
+- Profile post grid and stats charts
+
+### UI/UX
+
+- Bottom navigation (Dashboard, Feed, Friends, Profile)
+- In-app notifications popup (anchored below bell icon)
+- Light and dark theme support across major screens
+
+## Prerequisites
+
+- Flutter SDK `3.9.2+`
+- Dart SDK `3.9.2+`
+- Firebase project
+- Android Studio / Xcode
+- Node.js + npm (for Firebase CLI)
+
+## Setup
+
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/kevj-github/focusorelse.git
 cd focusorelse
-```
-
-### 2. Install Dependencies
-
-```bash
 flutter pub get
 ```
 
-### 3. Configure Environment Variables
+### 2. Configure environment
 
-**IMPORTANT**: This project uses environment variables for Firebase configuration.
+```bash
+cp .env.example .env
+```
 
-1. Copy the example environment file:
+Populate `.env` with your Firebase values.
+See [SECURITY.md](SECURITY.md) for details.
 
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Fill in your Firebase configuration in the `.env` file:
-   - Get these values from your Firebase Console
-   - See [SECURITY.md](SECURITY.md) for detailed instructions
-
-3. **Never commit the `.env` file** - it contains sensitive API keys
-
-### 4. Firebase Setup
-
-The project requires the following Firebase services:
-
-- **Firebase Auth** (Google Sign-In)
-- **Cloud Firestore** (Database)
-- **Firebase Storage** (Media storage)
-- **Firebase Cloud Messaging** (Push notifications)
-
-Configuration files needed (not committed to git):
+### 3. Add Firebase app config files
 
 - `android/app/google-services.json`
 - `ios/Runner/GoogleService-Info.plist`
 
-Download these from your Firebase Console and place them in the correct directories.
+### 4. Deploy Firestore rules and indexes
 
-### 5. Run the App
+This project includes Firestore config files:
+
+- `firestore.rules`
+- `firestore.indexes.json`
+
+Deploy them before testing friend stats/chat:
 
 ```bash
-# For Android
+npm install -g firebase-tools
+firebase login
+firebase deploy --only firestore:rules --project focusorelse-5151a
+firebase deploy --only firestore:indexes --project focusorelse-5151a
+```
+
+### 5. Run app
+
+```bash
 flutter run
-
-# For iOS
-flutter run -d ios
-
-# For Web
-flutter run -d chrome
 ```
 
-## 📁 Project Structure
+## Project Structure
 
-```
+```text
 lib/
-├── main.dart                 # App entry point
-├── firebase_options.dart     # Firebase configuration
-├── models/                   # Data models
-├── providers/                # State management (Provider)
-├── screens/                  # UI screens
-│   ├── auth/                # Authentication screens
-│   ├── home/                # Home/Feed screen
-│   ├── pacts/               # Pact management screens
-│   └── profile/             # Profile screens
-├── services/                 # Business logic services
-└── widgets/                  # Reusable UI components
+   main.dart
+   firebase_options.dart
+   models/
+      user_model.dart
+      pact_model.dart
+      friend_model.dart
+      post_model.dart
+      post_comment_model.dart
+      chat_message_model.dart
+   providers/
+      auth_provider.dart
+      pact_provider.dart
+      post_provider.dart
+      theme_provider.dart
+   screens/
+      auth/
+      create_pact/
+      friends/
+      home/
+      messages/
+      profile/
+      settings/
+   services/
+      auth_service.dart
+      firestore_service.dart
+      storage_service.dart
+      notification_service.dart
 ```
 
-## 🔒 Security
+## Tech Stack
 
-- All API keys are stored in `.env` file (not committed)
-- Firebase configuration uses environment variables
-- See [SECURITY.md](SECURITY.md) for security guidelines
+- Flutter + Material 3
+- Provider
+- Firebase Auth
+- Cloud Firestore
+- Firebase Storage
+- Firebase Messaging
 
-## 📚 Documentation
+## Common Troubleshooting
 
-- [Product Requirements Document](iter1/FoE_Product_Requirements_Document.md)
+### `PERMISSION_DENIED` on Firestore queries
+
+- Ensure latest `firestore.rules` are deployed.
+
+### `FAILED_PRECONDITION: The query requires an index`
+
+- Ensure `firestore.indexes.json` is deployed.
+- Wait for index build to complete in Firebase Console.
+
+### App feels stuck on emulator
+
+- This can happen with emulator rendering/jank.
+- Try full restart (`flutter run`), emulator cold boot, or physical device.
+
+## Documentation
+
+- [Backend Setup and Current Status](BACKEND_SETUP_COMPLETE.md)
+- [Security Notes](SECURITY.md)
 - [Flutter Implementation Plan](iter1/Flutter_Implementation_Plan.md)
-- [Backend Setup Guide](BACKEND_SETUP_COMPLETE.md)
 
-## 🛠️ Tech Stack
+## Security Note
 
-- **Framework**: Flutter 3.9.2
-- **State Management**: Provider
-- **Backend**: Firebase (Auth, Firestore, Storage, FCM)
-- **Authentication**: Google OAuth
-- **UI**: Material Design 3, Custom dark theme
+Never commit:
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## 📄 License
-
-This project is private and not licensed for public use.
-
-## 🐛 Issues
-
-Found a bug? Please create an issue on GitHub with:
-
-- Description of the bug
-- Steps to reproduce
-- Expected behavior
-- Screenshots (if applicable)
-
-## 📞 Contact
-
-For questions or support, please open an issue on GitHub.
-
----
-
-**⚠️ Important**: Never commit `.env`, `google-services.json`, or `GoogleService-Info.plist` files to version control.
+- `.env`
+- `android/app/google-services.json`
+- `ios/Runner/GoogleService-Info.plist`

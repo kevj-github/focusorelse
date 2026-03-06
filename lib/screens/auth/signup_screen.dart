@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,21 +17,100 @@ class SignupScreen extends StatefulWidget {
 
 class _SignupScreenState extends State<SignupScreen> {
   final _displayNameController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  Timer? _usernameDebounce;
+  bool _checkingUsername = false;
+  bool? _isUsernameAvailable;
+  String? _usernameError;
+
+  @override
+  void initState() {
+    super.initState();
+    _usernameController.addListener(_onUsernameChanged);
+  }
 
   @override
   void dispose() {
     _displayNameController.dispose();
+    _usernameController
+      ..removeListener(_onUsernameChanged)
+      ..dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _usernameDebounce?.cancel();
     super.dispose();
   }
 
+  String _normalizeUsernameInput(String input) {
+    final lower = input.trim().toLowerCase();
+    final withoutPrefix = lower.startsWith('@') ? lower.substring(1) : lower;
+    return withoutPrefix.replaceAll(RegExp(r'[^a-z0-9_]'), '');
+  }
+
+  void _onUsernameChanged() {
+    _usernameDebounce?.cancel();
+    final raw = _usernameController.text;
+    final normalized = _normalizeUsernameInput(raw);
+    if (raw != normalized) {
+      _usernameController.value = _usernameController.value.copyWith(
+        text: normalized,
+        selection: TextSelection.collapsed(offset: normalized.length),
+      );
+    }
+
+    if (normalized.length < 3) {
+      setState(() {
+        _isUsernameAvailable = null;
+        _checkingUsername = false;
+        _usernameError = normalized.isEmpty
+            ? null
+            : 'Username must be at least 3 characters.';
+      });
+      return;
+    }
+
+    setState(() {
+      _checkingUsername = true;
+      _usernameError = null;
+    });
+
+    _usernameDebounce = Timer(const Duration(milliseconds: 450), () async {
+      final authProvider = context.read<AuthProvider>();
+      final isAvailable = await authProvider.isUsernameAvailable(normalized);
+
+      if (!mounted) return;
+      setState(() {
+        _checkingUsername = false;
+        _isUsernameAvailable = isAvailable;
+        _usernameError = isAvailable ? null : 'Username is already taken.';
+      });
+    });
+  }
+
   Future<void> _register(AuthProvider authProvider) async {
+    final normalizedUsername = _normalizeUsernameInput(
+      _usernameController.text,
+    );
+
     if (_displayNameController.text.trim().isEmpty ||
+        normalizedUsername.isEmpty ||
         _emailController.text.trim().isEmpty ||
         _passwordController.text.trim().isEmpty) {
+      return;
+    }
+
+    if (normalizedUsername.length < 3 || _isUsernameAvailable != true) {
+      setState(() {
+        if (normalizedUsername.length < 3) {
+          _usernameError = 'Username must be at least 3 characters.';
+        } else if (_isUsernameAvailable == false) {
+          _usernameError = 'Username is already taken.';
+        } else {
+          _usernameError = 'Check username availability before continuing.';
+        }
+      });
       return;
     }
 
@@ -37,6 +118,7 @@ class _SignupScreenState extends State<SignupScreen> {
       _emailController.text.trim(),
       _passwordController.text.trim(),
       _displayNameController.text.trim(),
+      normalizedUsername,
     );
 
     if (!mounted) return;
@@ -48,9 +130,13 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Create account')),
       body: SafeArea(
         child: Padding(
@@ -59,9 +145,9 @@ class _SignupScreenState extends State<SignupScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Sign up to start your first pact.',
-                style: TextStyle(color: AppColors.textSecondaryDark),
+                style: TextStyle(color: secondary),
               ),
               const SizedBox(height: 24),
               AppInput(
@@ -69,6 +155,32 @@ class _SignupScreenState extends State<SignupScreen> {
                 label: 'Display name',
                 icon: Icons.person_outline,
               ),
+              const SizedBox(height: 14),
+              AppInput(
+                controller: _usernameController,
+                label: 'Username',
+                icon: Icons.alternate_email,
+                hintText: 'lowercase, numbers, underscore',
+              ),
+              if (_checkingUsername ||
+                  _usernameError != null ||
+                  _isUsernameAvailable == true)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 4),
+                  child: Text(
+                    _checkingUsername
+                        ? 'Checking username...'
+                        : _usernameError ?? 'Username is available.',
+                    style: TextStyle(
+                      color: _checkingUsername
+                          ? secondary
+                          : (_usernameError != null
+                                ? AppColors.primary
+                                : AppColors.accent),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               const SizedBox(height: 14),
               AppInput(
                 controller: _emailController,
@@ -94,9 +206,9 @@ class _SignupScreenState extends State<SignupScreen> {
                 onPressed: authProvider.isLoading
                     ? null
                     : () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   'Already have an account? Sign in',
-                  style: TextStyle(color: AppColors.textSecondaryDark),
+                  style: TextStyle(color: secondary),
                 ),
               ),
               if (authProvider.errorMessage != null) ...[

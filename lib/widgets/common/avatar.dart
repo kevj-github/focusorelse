@@ -9,12 +9,18 @@ class AppAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = Theme.of(context).colorScheme.surface;
+    final muted = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+
     return CircleAvatar(
       radius: radius,
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: surface,
       backgroundImage: imageUrl != null ? NetworkImage(imageUrl!) : null,
       child: imageUrl == null
-          ? Icon(Icons.person, color: AppColors.textSecondaryDark, size: radius)
+          ? Icon(Icons.person, color: muted, size: radius)
           : null,
     );
   }

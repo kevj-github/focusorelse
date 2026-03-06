@@ -65,11 +65,13 @@ class UserModel {
   factory UserModel.create({
     required String userId,
     required String email,
+    required String username,
     String? displayName,
   }) {
     return UserModel(
       userId: userId,
       email: email,
+      username: username,
       displayName: displayName,
       bio: '',
       stats: UserStats.empty(),

@@ -23,21 +23,24 @@ class AppInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final secondaryText = Theme.of(context).brightness == Brightness.dark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
       maxLines: maxLines,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: label,
         hintText: hintText,
-        labelStyle: const TextStyle(color: AppColors.textSecondaryDark),
+        labelStyle: TextStyle(color: secondaryText),
         prefixIcon: const Icon(Icons.circle, size: 0),
         prefixIconConstraints: const BoxConstraints(minWidth: 12),
-        suffixIcon: icon != null
-            ? Icon(icon, color: AppColors.textSecondaryDark)
-            : null,
+        suffixIcon: icon != null ? Icon(icon, color: secondaryText) : null,
       ),
     );
   }

@@ -326,15 +326,22 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   @override
   Widget build(BuildContext context) {
     final pactProvider = context.watch<PactProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = colorScheme.surface;
+    final onSurface = colorScheme.onSurface;
+    final borderColor = isDark
+        ? AppColors.darkBorder
+        : AppColors.darkBorder.withOpacity(0.45);
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: background,
       appBar: AppBar(
-        backgroundColor: AppColors.darkBackground,
+        backgroundColor: background,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'Create Pact',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          style: TextStyle(color: onSurface, fontWeight: FontWeight.w700),
         ),
       ),
       body: Stack(
@@ -345,10 +352,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                 gradient: RadialGradient(
                   center: const Alignment(-0.8, -1),
                   radius: 1.2,
-                  colors: [
-                    AppColors.primary.withOpacity(0.14),
-                    AppColors.darkBackground,
-                  ],
+                  colors: [AppColors.primary.withOpacity(0.14), background],
                 ),
               ),
             ),
@@ -382,7 +386,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                               controller: _taskController,
                               maxLength: _taskMaxLength,
                               maxLines: 3,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: onSurface),
                               decoration: const InputDecoration(
                                 labelText: 'What will you complete?',
                                 helperText: 'Keep this clear and measurable.',
@@ -443,10 +447,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                             const SizedBox(height: 8),
                             const Text(
                               'Deadline must be at least 1 hour from current time.',
-                              style: TextStyle(
-                                color: AppColors.textSecondaryDark,
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(fontSize: 12),
                             ),
                             if (_errorForDeadline() != null)
                               _InlineError(message: _errorForDeadline()!),
@@ -522,7 +523,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                     side: BorderSide(
                                       color: _selectedFriendProofType == type
                                           ? AppColors.primary
-                                          : AppColors.darkBorder,
+                                          : borderColor,
                                     ),
                                   ),
                                 )
@@ -537,7 +538,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                             children: [
                               TextField(
                                 controller: _verifierController,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: onSurface),
                                 onChanged: (_) => setState(() {}),
                                 decoration: const InputDecoration(
                                   labelText: 'Verifier user ID',
@@ -550,13 +551,9 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                 Container(
                                   margin: const EdgeInsets.only(top: 8),
                                   decoration: BoxDecoration(
-                                    color: AppColors.darkBackground.withOpacity(
-                                      0.7,
-                                    ),
+                                    color: background.withOpacity(0.7),
                                     borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(
-                                      color: AppColors.darkBorder,
-                                    ),
+                                    border: Border.all(color: borderColor),
                                   ),
                                   child: Column(
                                     children: _matchingVerifierSuggestions
@@ -565,8 +562,8 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                             dense: true,
                                             title: Text(
                                               suggestedId,
-                                              style: const TextStyle(
-                                                color: Colors.white,
+                                              style: TextStyle(
+                                                color: onSurface,
                                               ),
                                             ),
                                             onTap: () {
@@ -646,11 +643,8 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                             AppColors.accent,
                                           ],
                                         )
-                                      : const LinearGradient(
-                                          colors: [
-                                            AppColors.darkBorder,
-                                            AppColors.darkBorder,
-                                          ],
+                                      : LinearGradient(
+                                          colors: [borderColor, borderColor],
                                         ),
                                   borderRadius: BorderRadius.circular(18),
                                   border: Border.all(
@@ -677,10 +671,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                             const SizedBox(height: 8),
                             const Text(
                               'Long-press the fingerprint to seal your pact.',
-                              style: TextStyle(
-                                color: AppColors.textSecondaryDark,
-                                fontSize: 12,
-                              ),
+                              style: TextStyle(fontSize: 12),
                             ),
                           ],
                         ),
@@ -694,6 +685,11 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   }
 
   Widget _buildReview() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondaryText = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     final rows = <MapEntry<String, String>>[
       MapEntry(
         'Task',
@@ -739,17 +735,11 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                     width: 102,
                     child: Text(
                       row.key,
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryDark,
-                        fontSize: 13,
-                      ),
+                      style: TextStyle(color: secondaryText, fontSize: 13),
                     ),
                   ),
                   Expanded(
-                    child: Text(
-                      row.value,
-                      style: const TextStyle(color: Colors.white),
-                    ),
+                    child: Text(row.value, style: TextStyle(color: onSurface)),
                   ),
                 ],
               ),
@@ -760,6 +750,11 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   }
 
   Widget _buildSuccessState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondaryText = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -772,19 +767,19 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
               color: AppColors.primary,
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Pact Sealed',
               style: TextStyle(
-                color: Colors.white,
+                color: onSurface,
                 fontWeight: FontWeight.w800,
                 fontSize: 24,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Your pact is live. Stay accountable and submit evidence before the deadline.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondaryDark),
+              style: TextStyle(color: secondaryText),
             ),
             const SizedBox(height: 20),
             AppButton(
@@ -806,6 +801,15 @@ class _SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+    final borderColor = isDark
+        ? AppColors.darkBorder
+        : AppColors.darkBorder.withOpacity(0.45);
+    final surfaceColor = colorScheme.surfaceVariant.withOpacity(
+      isDark ? 0.96 : 0.9,
+    );
+    final onSurface = colorScheme.onSurface;
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
@@ -813,7 +817,7 @@ class _SectionCard extends StatelessWidget {
           colors: [
             AppColors.primary.withOpacity(0.35),
             AppColors.accent.withOpacity(0.25),
-            AppColors.darkBorder,
+            borderColor,
           ],
         ),
       ),
@@ -821,17 +825,17 @@ class _SectionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         decoration: BoxDecoration(
-          color: AppColors.darkSurface.withOpacity(0.96),
+          color: surfaceColor,
           borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: AppColors.darkBorder.withOpacity(0.75)),
+          border: Border.all(color: borderColor.withOpacity(0.75)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               title,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: onSurface,
                 fontWeight: FontWeight.w800,
                 fontSize: 15,
                 letterSpacing: 0.2,

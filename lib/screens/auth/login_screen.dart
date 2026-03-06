@@ -27,9 +27,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+    final border = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -47,12 +52,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'Hold yourself accountable',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textSecondaryDark,
-                  ),
+                  style: TextStyle(fontSize: 16, color: secondary),
                 ),
                 const SizedBox(height: 60),
                 if (authProvider.errorMessage != null)
@@ -113,12 +115,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 TextButton(
                   onPressed: () =>
                       Navigator.pushNamed(context, '/forgot-password'),
-                  child: const Text(
+                  child: Text(
                     'Forgot password?',
-                    style: TextStyle(
-                      color: AppColors.textSecondaryDark,
-                      fontSize: 14,
-                    ),
+                    style: TextStyle(color: secondary, fontSize: 14),
                   ),
                 ),
 
@@ -126,22 +125,15 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 Row(
                   children: [
-                    Expanded(
-                      child: Container(height: 1, color: AppColors.darkBorder),
-                    ),
-                    const Padding(
+                    Expanded(child: Container(height: 1, color: border)),
+                    Padding(
                       padding: EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         'OR',
-                        style: TextStyle(
-                          color: AppColors.textSecondaryDark,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: secondary, fontSize: 14),
                       ),
                     ),
-                    Expanded(
-                      child: Container(height: 1, color: AppColors.darkBorder),
-                    ),
+                    Expanded(child: Container(height: 1, color: border)),
                   ],
                 ),
 
@@ -157,9 +149,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: () => Navigator.pushNamed(context, '/signup'),
-                  child: const Text(
+                  child: Text(
                     'Don\'t have an account? Sign up',
-                    style: TextStyle(color: AppColors.textSecondaryDark),
+                    style: TextStyle(color: secondary),
                   ),
                 ),
               ],

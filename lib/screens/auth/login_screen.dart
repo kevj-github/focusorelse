@@ -42,6 +42,17 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // FoE logo
+                SizedBox(
+                  height: 150, // desired logo height
+                  width: 150, // optional, keeps it square
+                  child: Image.asset(
+                    'assets/images/full.png',
+                    fit: BoxFit
+                        .contain, // forces the image to scale inside the box
+                  ),
+                ),
+
                 const Text(
                   'Focus or Else',
                   style: TextStyle(

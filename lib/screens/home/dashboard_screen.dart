@@ -20,6 +20,7 @@ import '../profile/profile_screen.dart';
 import '../settings/settings_screen.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common/avatar.dart';
+import '../../widgets/common/app_logo_bar.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -678,37 +679,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        elevation: 0,
-        title: const Text(
-          'Focus or Else',
-          style: TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
-          ),
-        ),
-        actions: [
-          IconButton(
-            key: _notificationIconKey,
-            icon: Icon(Icons.notifications_outlined, color: onSurface),
-            onPressed: _openNotificationsPopup,
-          ),
-          IconButton(
-            icon: Icon(Icons.settings_outlined, color: onSurface),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-        ],
+      appBar: AppLogoBar(
+        notificationKey: _notificationIconKey,
+        onNotificationTap: _openNotificationsPopup,
+        onSettingsTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+          );
+        },
       ),
       body: IndexedStack(
         index: _selectedIndex,

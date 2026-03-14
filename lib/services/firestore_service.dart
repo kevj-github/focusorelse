@@ -287,6 +287,17 @@ class FirestoreService {
     }
   }
 
+  // Stream pact by ID
+  Stream<PactModel?> streamPact(String pactId) {
+    return _pactsCollection.doc(pactId).snapshots().map((doc) {
+      if (!doc.exists) {
+        return null;
+      }
+
+      return PactModel.fromFirestore(doc);
+    });
+  }
+
   // Update pact
   Future<void> updatePact(PactModel pact) async {
     try {
@@ -837,6 +848,23 @@ class FirestoreService {
         return rawCount.toInt();
       }
       return 0;
+    });
+  }
+
+  Stream<DateTime?> streamLastMessageAt({
+    required String currentUserId,
+    required String friendUserId,
+  }) {
+    final chatId = getChatId(currentUserId, friendUserId);
+
+    return _chatsCollection.doc(chatId).snapshots().map((doc) {
+      if (!doc.exists) {
+        return null;
+      }
+
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final timestamp = data['lastMessageAt'] as Timestamp?;
+      return timestamp?.toDate();
     });
   }
 

@@ -793,9 +793,9 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
                 const SizedBox(height: 10),
                 const Row(
                   children: [
-                    _LegendDot(color: AppColors.accent, label: 'Completed'),
+                    _LegendDot(color: AppColors.completed, label: 'Completed'),
                     SizedBox(width: 12),
-                    _LegendDot(color: AppColors.primary, label: 'Failed'),
+                    _LegendDot(color: AppColors.accent, label: 'Failed'),
                   ],
                 ),
               ],
@@ -909,12 +909,12 @@ class _PactSummaryChart extends StatelessWidget {
                                 if (failedHeight > 0)
                                   Container(
                                     height: failedHeight,
-                                    color: AppColors.primary,
+                                    color: AppColors.accent,
                                   ),
                                 if (completedHeight > 0)
                                   Container(
                                     height: completedHeight,
-                                    color: AppColors.accent,
+                                    color: AppColors.completed,
                                   ),
                               ],
                             ),
@@ -922,8 +922,8 @@ class _PactSummaryChart extends StatelessWidget {
                         : Container(
                             height: totalHeight,
                             color: mode == _ChartMode.completed
-                                ? AppColors.accent
-                                : AppColors.primary,
+                                ? AppColors.completed
+                                : AppColors.accent,
                           ),
                   ),
                   const SizedBox(height: 6),

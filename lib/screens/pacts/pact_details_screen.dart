@@ -1,0 +1,1226 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../../models/pact_model.dart';
+import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/pact_provider.dart';
+import '../../services/firestore_service.dart';
+import '../../theme/colors.dart';
+import '../../widgets/common/avatar.dart';
+
+class PactDetailsScreen extends StatefulWidget {
+  const PactDetailsScreen({super.key, required this.pactId, this.initialPact});
+
+  final String pactId;
+  final PactModel? initialPact;
+
+  @override
+  State<PactDetailsScreen> createState() => _PactDetailsScreenState();
+}
+
+class _PactDetailsScreenState extends State<PactDetailsScreen> {
+  final FirestoreService _firestoreService = FirestoreService();
+  final ImagePicker _imagePicker = ImagePicker();
+  final TextEditingController _submissionNoteController =
+      TextEditingController();
+  Timer? _ticker;
+  bool _isSubmittingEvidence = false;
+  bool _didSeedSubmissionNote = false;
+  File? _selectedPhotoEvidence;
+  File? _selectedVideoEvidence;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    _submissionNoteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<PactModel?>(
+      stream: _firestoreService.streamPact(widget.pactId),
+      builder: (context, snapshot) {
+        final pact = snapshot.data ?? widget.initialPact;
+
+        if (pact == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Pact Details')),
+            body: const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+          );
+        }
+
+        final statusTheme = _statusThemeForPact(pact);
+        final countdown = _formatCountdown(pact);
+        final authProvider = context.watch<AuthProvider>();
+        final currentUserId = authProvider.firebaseUser?.uid;
+        final isOwner = currentUserId != null && currentUserId == pact.userId;
+        final isVerifier =
+            currentUserId != null &&
+            pact.verifierId != null &&
+            currentUserId == pact.verifierId;
+
+        if (!_didSeedSubmissionNote) {
+          _submissionNoteController.text = _submissionNoteFromPact(pact);
+          _didSeedSubmissionNote = true;
+        }
+
+        return Scaffold(
+          backgroundColor: AppColors.darkBackground,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            title: const Text('Pact Details'),
+          ),
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      center: const Alignment(0, -1.0),
+                      radius: 1.25,
+                      colors: [
+                        statusTheme.main.withValues(alpha: 0.24),
+                        AppColors.darkBackground,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildDateBadge(pact, statusTheme),
+                      const SizedBox(height: 16),
+                      _buildMainCard(
+                        pact: pact,
+                        statusTheme: statusTheme,
+                        countdownText: countdown,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildMetaCard(
+                        pact: pact,
+                        statusTheme: statusTheme,
+                        isOwner: isOwner,
+                        isVerifier: isVerifier,
+                      ),
+                      const SizedBox(height: 14),
+                      _buildStakesCard(pact, statusTheme),
+                      const SizedBox(height: 20),
+                      _buildActionArea(
+                        pact: pact,
+                        statusTheme: statusTheme,
+                        isOwner: isOwner,
+                        isVerifier: isVerifier,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDateBadge(PactModel pact, _PactStatusTheme statusTheme) {
+    final dayText = DateFormat('dd').format(pact.deadline);
+    final monthYearText = DateFormat('MMM yyyy').format(pact.deadline);
+    final weekdayText = DateFormat('EEEE').format(pact.deadline);
+
+    return Column(
+      children: [
+        Container(
+          width: 92,
+          height: 92,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: statusTheme.main.withValues(alpha: 0.55),
+              width: 1.25,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: statusTheme.main.withValues(alpha: 0.5),
+                blurRadius: 28,
+                spreadRadius: 2,
+              ),
+              BoxShadow(
+                color: statusTheme.main.withValues(alpha: 0.3),
+                blurRadius: 52,
+                spreadRadius: 7,
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: 18,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                dayText,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                monthYearText,
+                style: const TextStyle(
+                  color: AppColors.textSecondaryDark,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          weekdayText,
+          style: const TextStyle(
+            color: AppColors.textSecondaryDark,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMainCard({
+    required PactModel pact,
+    required _PactStatusTheme statusTheme,
+    required String countdownText,
+  }) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: statusTheme.main.withValues(alpha: 0.55)),
+        boxShadow: [
+          BoxShadow(
+            color: statusTheme.main.withValues(alpha: 0.26),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _buildPill(
+                _statusLabel(pact).toUpperCase(),
+                statusTheme.main,
+                foregroundColor: Colors.white,
+              ),
+              _buildPill(
+                _verificationLabel(pact.verificationType),
+                Colors.white,
+                foregroundColor: Colors.white,
+                subtle: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            pact.taskDescription,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 27,
+              fontWeight: FontWeight.w800,
+              height: 1.1,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Center(
+            child: Container(
+              width: 205,
+              height: 205,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+                border: Border.all(
+                  color: statusTheme.main.withValues(alpha: 0.9),
+                  width: 3,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: statusTheme.main.withValues(alpha: 0.27),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(10),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.darkBackground,
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    width: 1.3,
+                  ),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'TIME LEFT',
+                      style: TextStyle(
+                        color: statusTheme.main,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      countdownText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 39,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Deadline: ${DateFormat('h:mm a').format(pact.deadline)}',
+                      style: const TextStyle(
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            'Due by ${DateFormat('EEE, MMM d • h:mm a').format(pact.deadline)}',
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMetaCard({
+    required PactModel pact,
+    required _PactStatusTheme statusTheme,
+    required bool isOwner,
+    required bool isVerifier,
+  }) {
+    final roleLabel = isOwner
+        ? 'Owner'
+        : isVerifier
+        ? 'Verifier'
+        : 'Viewer';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _infoTile(
+                  icon: Icons.flag,
+                  title: 'Current Status',
+                  value: _statusLabel(pact),
+                  valueColor: statusTheme.main,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _infoTile(
+                  icon: Icons.person,
+                  title: 'Your Role',
+                  value: roleLabel,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _buildVerifierTile(pact),
+          if (pact.evidenceUrl != null && pact.evidenceUrl!.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _buildEvidenceIndicator(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStakesCard(PactModel pact, _PactStatusTheme statusTheme) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: statusTheme.main),
+              const SizedBox(width: 8),
+              const Text(
+                'CONSEQUENCE',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            _consequenceDescription(pact),
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionArea({
+    required PactModel pact,
+    required _PactStatusTheme statusTheme,
+    required bool isOwner,
+    required bool isVerifier,
+  }) {
+    final pactProvider = context.read<PactProvider>();
+    final existingEvidenceUrl = pact.evidenceUrl;
+    final hasLocalPreview =
+        _selectedPhotoEvidence != null || _selectedVideoEvidence != null;
+    final showNetworkPreview =
+        !hasLocalPreview &&
+        existingEvidenceUrl != null &&
+        existingEvidenceUrl.isNotEmpty;
+
+    final notesCard = _buildSubmissionNotesCard(
+      editable: isOwner && pact.status == PactStatus.active && !pact.isOverdue,
+    );
+
+    final evidencePreview = hasLocalPreview
+        ? _buildLocalEvidencePreview()
+        : (showNetworkPreview
+              ? _buildNetworkEvidencePreview(existingEvidenceUrl)
+              : null);
+
+    if (pact.status == PactStatus.verificationPending && isVerifier) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          notesCard,
+          if (evidencePreview != null) ...[
+            const SizedBox(height: 10),
+            evidencePreview,
+          ],
+          const SizedBox(height: 10),
+          const Text(
+            'Verification Required',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: pactProvider.isLoading
+                ? null
+                : () => _verifyPact(pact, approved: false),
+            icon: const Icon(Icons.close),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+            ),
+            label: const Text('Reject Evidence'),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: pactProvider.isLoading
+                ? null
+                : () => _verifyPact(pact, approved: true),
+            icon: const Icon(Icons.check),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: AppColors.success,
+              foregroundColor: Colors.white,
+            ),
+            label: const Text('Approve & Complete'),
+          ),
+        ],
+      );
+    }
+
+    if (isOwner && pact.status == PactStatus.active && !pact.isOverdue) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          notesCard,
+          const SizedBox(height: 10),
+          if (evidencePreview != null) ...[
+            evidencePreview,
+            const SizedBox(height: 10),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isSubmittingEvidence ? null : _pickPhotoEvidence,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: AppColors.darkBorder),
+                    minimumSize: const Size.fromHeight(46),
+                  ),
+                  label: const Text('Upload Photo'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isSubmittingEvidence ? null : _pickVideoEvidence,
+                  icon: const Icon(Icons.video_library_outlined),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: AppColors.darkBorder),
+                    minimumSize: const Size.fromHeight(46),
+                  ),
+                  label: const Text('Upload Video'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: _isSubmittingEvidence
+                ? null
+                : () => _submitEvidence(pact),
+            icon: _isSubmittingEvidence
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.check_circle_outline),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              backgroundColor: statusTheme.main,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+            ),
+            label: const Text('Confirm Submission'),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        notesCard,
+        if (evidencePreview != null) ...[
+          const SizedBox(height: 10),
+          evidencePreview,
+        ],
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.darkSurface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.darkBorder),
+          ),
+          child: Text(
+            _statusSummary(pact),
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubmissionNotesCard({required bool editable}) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Submission Notes',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _submissionNoteController,
+            enabled: editable,
+            maxLines: 3,
+            style: const TextStyle(color: Colors.white),
+            decoration: const InputDecoration(
+              hintText: 'Add notes about your submission or completion...',
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocalEvidencePreview() {
+    final selectedPhoto = _selectedPhotoEvidence;
+    final selectedVideo = _selectedVideoEvidence;
+
+    if (selectedPhoto != null) {
+      return _buildEvidencePreviewFrame(
+        label: 'Preview',
+        trailing: TextButton.icon(
+          onPressed: _clearSelectedEvidence,
+          icon: const Icon(Icons.close_rounded, size: 16),
+          label: const Text('Remove'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: const Size(0, 32),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        child: _buildAdaptiveImagePreview(FileImage(selectedPhoto)),
+      );
+    }
+
+    if (selectedVideo != null) {
+      return _buildEvidencePreviewFrame(
+        label: 'Preview',
+        trailing: TextButton.icon(
+          onPressed: _clearSelectedEvidence,
+          icon: const Icon(Icons.close_rounded, size: 16),
+          label: const Text('Remove'),
+          style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            minimumSize: const Size(0, 32),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ),
+        child: _buildVideoPreviewPlaceholder(
+          subtitle: selectedVideo.path.split('\\').last,
+        ),
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildNetworkEvidencePreview(String? evidenceUrl) {
+    if (evidenceUrl == null || evidenceUrl.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    if (_looksLikeImageUrl(evidenceUrl)) {
+      return _buildEvidencePreviewFrame(
+        label: 'Submitted Evidence',
+        child: _buildAdaptiveImagePreview(NetworkImage(evidenceUrl)),
+      );
+    }
+
+    return _buildEvidencePreviewFrame(
+      label: 'Submitted Evidence',
+      child: _buildVideoPreviewPlaceholder(
+        subtitle: 'Video uploaded successfully.',
+      ),
+    );
+  }
+
+  Widget _buildEvidencePreviewFrame({
+    required String label,
+    required Widget child,
+    Widget? trailing,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.darkSurface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing,
+            ],
+          ),
+          const SizedBox(height: 6),
+          Center(child: child),
+        ],
+      ),
+    );
+  }
+
+  void _clearSelectedEvidence() {
+    setState(() {
+      _selectedPhotoEvidence = null;
+      _selectedVideoEvidence = null;
+    });
+  }
+
+  Widget _buildAdaptiveImagePreview(ImageProvider imageProvider) {
+    return FutureBuilder<ui.Size>(
+      future: _resolveImageSize(imageProvider),
+      builder: (context, snapshot) {
+        final resolvedAspectRatio = snapshot.hasData
+            ? (snapshot.data!.width / snapshot.data!.height)
+                  .clamp(0.7, 1.8)
+                  .toDouble()
+            : 4 / 3;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final maxPreviewWidth = constraints.maxWidth.clamp(180.0, 230.0);
+
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                color: AppColors.darkBackground,
+                constraints: BoxConstraints(
+                  maxWidth: maxPreviewWidth,
+                  maxHeight: 220,
+                ),
+                child: AspectRatio(
+                  aspectRatio: resolvedAspectRatio,
+                  child: Image(
+                    image: imageProvider,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => _buildVideoPreviewPlaceholder(
+                      subtitle: 'Unable to render image preview.',
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<ui.Size> _resolveImageSize(ImageProvider imageProvider) {
+    final completer = Completer<ui.Size>();
+    final imageStream = imageProvider.resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+
+    listener = ImageStreamListener(
+      (imageInfo, _) {
+        final image = imageInfo.image;
+        if (!completer.isCompleted) {
+          completer.complete(
+            ui.Size(image.width.toDouble(), image.height.toDouble()),
+          );
+        }
+        imageStream.removeListener(listener);
+      },
+      onError: (_, __) {
+        if (!completer.isCompleted) {
+          completer.complete(const ui.Size(4, 3));
+        }
+        imageStream.removeListener(listener);
+      },
+    );
+
+    imageStream.addListener(listener);
+    return completer.future;
+  }
+
+  Widget _buildVideoPreviewPlaceholder({required String subtitle}) {
+    return Container(
+      height: 130,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: AppColors.darkBackground,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(
+            Icons.video_library_rounded,
+            color: Colors.white,
+            size: 30,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Video Preview',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textSecondaryDark,
+              fontSize: 12,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  bool _looksLikeImageUrl(String url) {
+    final lower = url.toLowerCase();
+    return lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.webp') ||
+        lower.contains('/image/');
+  }
+
+  Future<void> _pickPhotoEvidence() async {
+    final picked = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+    );
+
+    if (picked == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedPhotoEvidence = File(picked.path);
+      _selectedVideoEvidence = null;
+    });
+  }
+
+  Future<void> _pickVideoEvidence() async {
+    final picked = await _imagePicker.pickVideo(source: ImageSource.gallery);
+
+    if (picked == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedVideoEvidence = File(picked.path);
+      _selectedPhotoEvidence = null;
+    });
+  }
+
+  Widget _buildVerifierTile(PactModel pact) {
+    if (pact.verifierId == null || pact.verifierId!.isEmpty) {
+      return _infoTile(
+        icon: Icons.verified_user_outlined,
+        title: 'Verifier',
+        value: _verificationLabel(pact.verificationType),
+      );
+    }
+
+    return FutureBuilder<UserModel?>(
+      future: _firestoreService.getUser(pact.verifierId!),
+      builder: (context, snapshot) {
+        final user = snapshot.data;
+        final displayName =
+            user?.displayName ?? user?.username ?? 'Verifier User';
+
+        return Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.darkBackground,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.darkBorder),
+          ),
+          child: Row(
+            children: [
+              AppAvatar(imageUrl: user?.profilePictureUrl, radius: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Verifier',
+                      style: TextStyle(
+                        color: AppColors.textSecondaryDark,
+                        fontSize: 11,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      displayName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildEvidenceIndicator() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.45)),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.check_circle, color: AppColors.success, size: 18),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Evidence submitted',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _infoTile({
+    required IconData icon,
+    required String title,
+    required String value,
+    Color? valueColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.darkBackground,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.darkBorder),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.textSecondaryDark, size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppColors.textSecondaryDark,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: valueColor ?? Colors.white,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPill(
+    String text,
+    Color color, {
+    bool subtle = false,
+    Color? foregroundColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: subtle
+            ? color.withValues(alpha: 0.15)
+            : color.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.55)),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: foregroundColor ?? color,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.35,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitEvidence(PactModel pact) async {
+    if (_selectedPhotoEvidence == null && _selectedVideoEvidence == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Upload a photo or video before confirming submission.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSubmittingEvidence = true;
+    });
+
+    try {
+      final success = await context.read<PactProvider>().submitEvidence(
+        pact: pact,
+        photoFile: _selectedPhotoEvidence,
+        videoFile: _selectedVideoEvidence,
+        submissionNote: _submissionNoteController.text.trim(),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            success
+                ? 'Evidence submitted successfully.'
+                : 'Could not submit evidence. Please try again.',
+          ),
+          backgroundColor: success ? AppColors.success : AppColors.primary,
+        ),
+      );
+
+      if (success) {
+        setState(() {
+          _selectedPhotoEvidence = null;
+          _selectedVideoEvidence = null;
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingEvidence = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _verifyPact(PactModel pact, {required bool approved}) async {
+    final success = await context.read<PactProvider>().verifyPact(
+      pact,
+      approved,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? approved
+                    ? 'Pact approved and completed.'
+                    : 'Pact rejected.'
+              : 'Unable to update verification right now.',
+        ),
+        backgroundColor: success
+            ? (approved ? AppColors.success : AppColors.primary)
+            : AppColors.primary,
+      ),
+    );
+  }
+
+  _PactStatusTheme _statusThemeForPact(PactModel pact) {
+    if (pact.status == PactStatus.completed) {
+      return const _PactStatusTheme(main: AppColors.completed);
+    }
+
+    if (pact.status == PactStatus.failed || pact.isOverdue) {
+      return const _PactStatusTheme(main: AppColors.accent);
+    }
+
+    return const _PactStatusTheme(main: AppColors.primary);
+  }
+
+  String _statusLabel(PactModel pact) {
+    if (pact.status == PactStatus.completed) {
+      return 'Completed';
+    }
+
+    if (pact.status == PactStatus.failed || pact.isOverdue) {
+      return 'Failed';
+    }
+
+    return 'Ongoing';
+  }
+
+  String _verificationLabel(VerificationType type) {
+    switch (type) {
+      case VerificationType.selfAttest:
+        return 'Self Verification';
+      case VerificationType.friendVerify:
+        return 'Friend Review';
+      case VerificationType.aiVerify:
+        return 'AI Verification';
+      case VerificationType.photoProof:
+        return 'Photo Proof';
+      case VerificationType.videoProof:
+        return 'Video Proof';
+    }
+  }
+
+  String _consequenceDescription(PactModel pact) {
+    if (pact.consequenceDetails.isNotEmpty) {
+      final customText = pact.consequenceDetails['description'];
+      if (customText is String && customText.trim().isNotEmpty) {
+        return customText.trim();
+      }
+    }
+
+    switch (pact.consequenceType) {
+      case ConsequenceType.socialSharing:
+        return 'If you miss this pact, you need to post a consequence update visible to your accountability circle.';
+      case ConsequenceType.donationChallenge:
+        return 'If this pact fails, a donation-style challenge is triggered based on the pre-agreed stakes.';
+      case ConsequenceType.funnyPenalty:
+        return 'Missing this pact triggers a playful penalty to keep accountability memorable and social.';
+    }
+  }
+
+  String _formatCountdown(PactModel pact) {
+    if (pact.status == PactStatus.completed) {
+      return 'DONE';
+    }
+
+    if (pact.status == PactStatus.failed || pact.isOverdue) {
+      return '00:00:00';
+    }
+
+    final remaining = pact.deadline.difference(DateTime.now());
+    final safeRemaining = remaining.isNegative ? Duration.zero : remaining;
+    final hours = safeRemaining.inHours;
+    final minutes = safeRemaining.inMinutes.remainder(60);
+    final seconds = safeRemaining.inSeconds.remainder(60);
+
+    return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  String _statusSummary(PactModel pact) {
+    if (pact.status == PactStatus.completed) {
+      return 'This pact is completed. Great execution and accountability.';
+    }
+
+    if (pact.status == PactStatus.failed || pact.isOverdue) {
+      return 'This pact failed. Review the consequence details and create the next pact quickly to keep momentum.';
+    }
+
+    if (pact.status == PactStatus.verificationPending) {
+      return 'Evidence was submitted and is waiting for verifier action.';
+    }
+
+    return 'This pact is ongoing. Submit evidence before the deadline to avoid triggering the consequence.';
+  }
+
+  String _submissionNoteFromPact(PactModel pact) {
+    final note = pact.consequenceDetails['submissionNote'];
+    if (note is String && note.trim().isNotEmpty) {
+      return note.trim();
+    }
+    return '';
+  }
+}
+
+class _PactStatusTheme {
+  const _PactStatusTheme({required this.main});
+
+  final Color main;
+}

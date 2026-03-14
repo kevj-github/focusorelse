@@ -174,6 +174,7 @@ class PactProvider with ChangeNotifier {
     required PactModel pact,
     File? photoFile,
     File? videoFile,
+    String? submissionNote,
   }) async {
     try {
       _isLoading = true;
@@ -195,12 +196,24 @@ class PactProvider with ChangeNotifier {
         );
       }
 
+      final updatedConsequenceDetails = Map<String, dynamic>.from(
+        pact.consequenceDetails,
+      );
+      final trimmedNote = submissionNote?.trim();
+      if (trimmedNote != null && trimmedNote.isNotEmpty) {
+        updatedConsequenceDetails['submissionNote'] = trimmedNote;
+      }
+
       // Update pact with evidence
       final updatedPact = pact.copyWith(
         evidenceUrl: evidenceUrl,
+        consequenceDetails: updatedConsequenceDetails,
         status: pact.verificationType == VerificationType.selfAttest
             ? PactStatus.completed
             : PactStatus.verificationPending,
+        completedAt: pact.verificationType == VerificationType.selfAttest
+            ? DateTime.now()
+            : null,
       );
 
       await _firestoreService.updatePact(updatedPact);

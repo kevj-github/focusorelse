@@ -118,16 +118,42 @@ class PactModel {
 
   // Helper to format time remaining as string
   String get timeRemainingFormatted {
-    if (isOverdue) return 'Overdue';
-
-    final duration = timeRemaining;
-    if (duration.inDays > 0) {
-      return '${duration.inDays}d ${duration.inHours % 24}h';
-    } else if (duration.inHours > 0) {
-      return '${duration.inHours}h ${duration.inMinutes % 60}m';
-    } else {
-      return '${duration.inMinutes}m';
+    if (status == PactStatus.failed) {
+      return '${_formatCompactDuration(DateTime.now().difference(completedAt ?? deadline))} ago';
     }
+
+    if (status == PactStatus.completed) {
+      return '${_formatCompactDuration(DateTime.now().difference(completedAt ?? deadline))} ago';
+    }
+
+    if (isOverdue) {
+      return 'Failed';
+    }
+
+    return _formatCompactDuration(timeRemaining);
+  }
+
+  String _formatCompactDuration(Duration duration) {
+    final absolute = duration.isNegative ? duration.abs() : duration;
+
+    final days = absolute.inDays;
+    final hours = absolute.inHours % 24;
+    final minutes = absolute.inMinutes % 60;
+    final seconds = absolute.inSeconds % 60;
+
+    if (days > 0) {
+      return hours > 0 ? '${days}d ${hours}h' : '${days}d';
+    }
+
+    if (hours > 0) {
+      return minutes > 0 ? '${hours}h ${minutes}m' : '${hours}h';
+    }
+
+    if (minutes > 0) {
+      return seconds > 0 ? '${minutes}m ${seconds}s' : '${minutes}m';
+    }
+
+    return '${seconds}s';
   }
 
   PactModel copyWith({

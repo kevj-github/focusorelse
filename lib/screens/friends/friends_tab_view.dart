@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../utils/time_label.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/avatar.dart';
 import '../messages/message_screen.dart';
@@ -244,7 +245,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       if (authProvider.isAuthenticated || authProvider.isLoading) {
         return Center(
           child: Text(
-            'Syncing your account…',
+            'Syncing your account...',
             style: TextStyle(color: secondaryText),
           ),
         );
@@ -719,7 +720,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       final dueIn = waiting.deadline.difference(now);
       return FriendPactStatus(
         type: FriendPactStatusType.waitingForEvidence,
-        message: 'Waiting for evidence · Due in ${_formatDuration(dueIn)}',
+        message: 'Waiting for evidence - Due in ${_formatDuration(dueIn)}',
         pact: waiting,
       );
     }
@@ -728,7 +729,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       final lateFor = now.difference(failed.deadline);
       return FriendPactStatus(
         type: FriendPactStatusType.failedSubmission,
-        message: 'Failed submission · Late for ${_formatDuration(lateFor)}',
+        message: 'Failed submission - Late for ${_formatDuration(lateFor)}',
         pact: failed,
       );
     }
@@ -984,51 +985,77 @@ class FriendPactCard extends StatelessWidget {
                   ),
                   builder: (context, snapshot) {
                     final unreadCount = snapshot.data ?? 0;
-                    return Stack(
-                      clipBehavior: Clip.none,
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: onMessageTap,
-                            icon: Icon(
-                              Icons.chat_bubble_outline,
-                              size: 18,
-                              color: secondary,
-                            ),
-                          ),
-                        ),
-                        if (unreadCount > 0)
-                          Positioned(
-                            right: -3,
-                            top: -3,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
                               decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(10),
+                                color: Theme.of(
+                                  context,
+                                ).scaffoldBackgroundColor,
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              constraints: const BoxConstraints(minWidth: 16),
-                              child: Text(
-                                unreadCount > 99 ? '99+' : '$unreadCount',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: onMessageTap,
+                                icon: Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 18,
+                                  color: secondary,
                                 ),
                               ),
                             ),
+                            if (unreadCount > 0)
+                              Positioned(
+                                right: -3,
+                                top: -3,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                  ),
+                                  child: Text(
+                                    unreadCount > 99 ? '99+' : '$unreadCount',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        StreamBuilder<DateTime?>(
+                          stream: _firestoreService.streamLastMessageAt(
+                            currentUserId: currentUserId,
+                            friendUserId: friend.userId,
                           ),
+                          builder: (context, timeSnapshot) {
+                            return Text(
+                              TimeLabel.formatRelativeShort(timeSnapshot.data),
+                              style: TextStyle(
+                                color: secondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     );
                   },

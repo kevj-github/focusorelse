@@ -7,6 +7,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/avatar.dart';
 
@@ -351,7 +353,10 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
         elevation: 0,
         title: Text(
           'Create Pact',
-          style: TextStyle(color: onSurface, fontWeight: FontWeight.w700),
+          style: AppTypography.titleMedium.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       body: Stack(
@@ -362,7 +367,10 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                 gradient: RadialGradient(
                   center: const Alignment(-0.8, -1),
                   radius: 1.2,
-                  colors: [AppColors.primary.withOpacity(0.14), background],
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.14),
+                    background,
+                  ],
                 ),
               ),
             ),
@@ -376,7 +384,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                 height: 180,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.accent.withOpacity(0.08),
+                  color: AppColors.accent.withValues(alpha: 0.08),
                 ),
               ),
             ),
@@ -385,22 +393,29 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
             child: _isSuccess
                 ? _buildSuccessState()
                 : ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.xl,
+                      AppSpacing.md,
+                      AppSpacing.xl,
+                      AppSpacing.xl,
+                    ),
                     children: [
                       if (pactProvider.hasPendingConsequence)
                         Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(12),
+                          margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                          padding: const EdgeInsets.all(AppSpacing.md),
                           decoration: BoxDecoration(
                             color: AppColors.primary.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(
+                              AppElevation.radiusMedium,
+                            ),
                             border: Border.all(
                               color: AppColors.primary.withValues(alpha: 0.4),
                             ),
                           ),
                           child: Text(
                             'Pact creation is locked while a consequence is pending. Submit consequence evidence from your failed pact and wait for verifier approval.',
-                            style: TextStyle(
+                            style: AppTypography.bodyMedium.copyWith(
                               color: onSurface,
                               fontWeight: FontWeight.w600,
                             ),
@@ -431,14 +446,14 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _SectionCard(
                         title: 'Category',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             DropdownButtonFormField<String>(
-                              value: _selectedCategory,
+                              initialValue: _selectedCategory,
                               items: _categories
                                   .map(
                                     (category) => DropdownMenuItem(
@@ -461,7 +476,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _SectionCard(
                         title: 'Deadline',
                         child: Column(
@@ -473,21 +488,23 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                               onPressed: _pickDeadline,
                               icon: const Icon(Icons.schedule),
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
                               'Deadline must be at least 1 hour from current time.',
-                              style: TextStyle(fontSize: 12),
+                              style: AppTypography.bodySmall.copyWith(
+                                color: onSurface,
+                              ),
                             ),
                             if (_errorForDeadline() != null)
                               _InlineError(message: _errorForDeadline()!),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _SectionCard(
                         title: 'Verification Method',
                         child: DropdownButtonFormField<CreateVerificationMethod>(
-                          value: _selectedVerificationMethod,
+                          initialValue: _selectedVerificationMethod,
                           items: [
                             DropdownMenuItem<CreateVerificationMethod>(
                               value: CreateVerificationMethod.friend,
@@ -536,12 +553,12 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                         ),
                       ),
                       if (_isFriendVerification) ...[
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppSpacing.md),
                         _SectionCard(
                           title: 'Friend Proof Type',
                           child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
+                            spacing: AppSpacing.sm,
+                            runSpacing: AppSpacing.sm,
                             children: FriendProofType.values
                                 .map(
                                   (type) => ChoiceChip(
@@ -552,8 +569,9 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                         _selectedFriendProofType = type;
                                       });
                                     },
-                                    selectedColor: AppColors.primary
-                                        .withOpacity(0.22),
+                                    selectedColor: AppColors.primary.withValues(
+                                      alpha: 0.22,
+                                    ),
                                     side: BorderSide(
                                       color: _selectedFriendProofType == type
                                           ? AppColors.primary
@@ -564,14 +582,14 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                 .toList(),
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: AppSpacing.md),
                         _SectionCard(
                           title: 'Verifier',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               DropdownButtonFormField<String>(
-                                value: _isVerifierValid
+                                initialValue: _isVerifierValid
                                     ? _selectedVerifierUserId
                                     : null,
                                 items: _friendUsers
@@ -617,14 +635,14 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _SectionCard(
                         title: 'Consequence',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             DropdownButtonFormField<ConsequenceType>(
-                              value: _selectedConsequence,
+                              initialValue: _selectedConsequence,
                               items: ConsequenceType.values
                                   .map(
                                     (type) => DropdownMenuItem(
@@ -647,22 +665,22 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _SectionCard(title: 'Review', child: _buildReview()),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       _SectionCard(
                         title: 'Seal Pact',
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Text(
+                            Text(
                               'Final submission is non-editable after submit.',
-                              style: TextStyle(
+                              style: AppTypography.bodyMedium.copyWith(
                                 color: AppColors.accent,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            const SizedBox(height: AppSpacing.sm),
                             GestureDetector(
                               onLongPress:
                                   (pactProvider.isLoading ||
@@ -684,9 +702,13 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                       : LinearGradient(
                                           colors: [borderColor, borderColor],
                                         ),
-                                  borderRadius: BorderRadius.circular(18),
+                                  borderRadius: BorderRadius.circular(
+                                    AppElevation.radiusXl,
+                                  ),
                                   border: Border.all(
-                                    color: AppColors.primary.withOpacity(0.5),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.5,
+                                    ),
                                   ),
                                 ),
                                 alignment: Alignment.center,
@@ -706,10 +728,12 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                       ),
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            const Text(
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
                               'Long-press the fingerprint to seal your pact.',
-                              style: TextStyle(fontSize: 12),
+                              style: AppTypography.bodySmall.copyWith(
+                                color: onSurface,
+                              ),
                             ),
                           ],
                         ),
@@ -759,7 +783,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
       children: rows
           .map(
             (row) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -767,11 +791,18 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                     width: 102,
                     child: Text(
                       row.key,
-                      style: TextStyle(color: secondaryText, fontSize: 13),
+                      style: AppTypography.bodySmall.copyWith(
+                        color: secondaryText,
+                      ),
                     ),
                   ),
                   Expanded(
-                    child: Text(row.value, style: TextStyle(color: onSurface)),
+                    child: Text(
+                      row.value,
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: onSurface,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -789,7 +820,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
         : AppColors.textSecondaryLight;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -798,22 +829,21 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
               size: 64,
               color: AppColors.primary,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             Text(
               'Pact Sealed',
-              style: TextStyle(
+              style: AppTypography.headlineSmall.copyWith(
                 color: onSurface,
                 fontWeight: FontWeight.w800,
-                fontSize: 24,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Text(
               'Your pact is live. Stay accountable and submit evidence before the deadline.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: secondaryText),
+              style: AppTypography.bodyMedium.copyWith(color: secondaryText),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: AppSpacing.lg),
             AppButton(
               label: 'Back to Dashboard',
               onPressed: () => Navigator.of(context).pop(true),
@@ -920,8 +950,8 @@ class _SectionCard extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
     final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final surfaceColor = colorScheme.surfaceVariant.withOpacity(
-      isDark ? 0.96 : 0.98,
+    final surfaceColor = colorScheme.surfaceContainerHighest.withValues(
+      alpha: isDark ? 0.96 : 0.98,
     );
     final onSurface = colorScheme.onSurface;
     return Container(
@@ -929,8 +959,8 @@ class _SectionCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.35),
-            AppColors.accent.withOpacity(0.25),
+            AppColors.primary.withValues(alpha: 0.35),
+            AppColors.accent.withValues(alpha: 0.25),
             borderColor,
           ],
         ),
@@ -941,7 +971,7 @@ class _SectionCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: surfaceColor,
           borderRadius: BorderRadius.circular(17),
-          border: Border.all(color: borderColor.withOpacity(0.75)),
+          border: Border.all(color: borderColor.withValues(alpha: 0.75)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_input.dart';
 
@@ -52,37 +54,34 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Forgot password')),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: ListView(
+        padding: const EdgeInsets.all(AppSpacing.xl),
+        children: [
+          Text(
+            'Enter your email and we will send a reset link.',
+            style: AppTypography.bodyLarge.copyWith(color: secondary),
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          AppInput(
+            controller: _emailController,
+            label: 'Email',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+          ),
+          const SizedBox(height: AppSpacing.xl),
+          AppButton(
+            label: 'Send reset link',
+            isLoading: authProvider.isLoading,
+            onPressed: () => _sendReset(authProvider),
+          ),
+          if (authProvider.errorMessage != null) ...[
+            const SizedBox(height: AppSpacing.sm),
             Text(
-              'Enter your email and we will send a reset link.',
-              style: TextStyle(color: secondary),
+              authProvider.errorMessage!,
+              style: AppTypography.bodySmall.copyWith(color: AppColors.primary),
             ),
-            const SizedBox(height: 20),
-            AppInput(
-              controller: _emailController,
-              label: 'Email',
-              icon: Icons.email_outlined,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 20),
-            AppButton(
-              label: 'Send reset link',
-              isLoading: authProvider.isLoading,
-              onPressed: () => _sendReset(authProvider),
-            ),
-            if (authProvider.errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                authProvider.errorMessage!,
-                style: const TextStyle(color: AppColors.primary),
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }

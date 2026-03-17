@@ -9,6 +9,8 @@ import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../utils/time_label.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/avatar.dart';
@@ -246,7 +248,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
         return Center(
           child: Text(
             'Syncing your account...',
-            style: TextStyle(color: secondaryText),
+            style: AppTypography.bodyMedium.copyWith(color: secondaryText),
           ),
         );
       }
@@ -254,7 +256,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       return Center(
         child: Text(
           'Sign in to view your friends.',
-          style: TextStyle(color: onSurface),
+          style: AppTypography.bodyMedium.copyWith(color: onSurface),
         ),
       );
     }
@@ -264,7 +266,12 @@ class _FriendsTabViewState extends State<FriendsTabView> {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.md,
+            AppSpacing.lg,
+            AppSpacing.xs,
+          ),
           child: Row(
             children: [
               Expanded(
@@ -279,13 +286,15 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Container(
                 decoration: BoxDecoration(
                   color: _isAddMode
                       ? AppColors.primary
                       : Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(
+                    AppElevation.radiusMedium,
+                  ),
                   border: Border.all(color: borderColor),
                 ),
                 child: IconButton(
@@ -329,7 +338,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       return Center(
         child: Text(
           'Type a username to find users.',
-          style: TextStyle(color: secondary),
+          style: AppTypography.bodyMedium.copyWith(color: secondary),
         ),
       );
     }
@@ -344,13 +353,18 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       return Center(
         child: Text(
           'No matching users found.',
-          style: TextStyle(color: secondary),
+          style: AppTypography.bodyMedium.copyWith(color: secondary),
         ),
       );
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 18),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       itemBuilder: (context, index) {
         final user = _suggestedUsers[index];
         final relationStatus =
@@ -368,11 +382,14 @@ class _FriendsTabViewState extends State<FriendsTabView> {
             : 'Add';
 
         return AppCard(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
           child: Row(
             children: [
               AppAvatar(imageUrl: user.profilePictureUrl, radius: 20),
-              const SizedBox(width: 10),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,21 +398,20 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                       user.displayName ?? user.username ?? 'User',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: AppTypography.bodyLarge.copyWith(
                         color: onSurface,
-                        fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     if ((user.username ?? '').isNotEmpty)
                       Text(
                         '@${user.username}',
-                        style: TextStyle(color: secondary, fontSize: 12),
+                        style: AppTypography.caption.copyWith(color: secondary),
                       ),
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: AppSpacing.sm),
               ElevatedButton(
                 onPressed: canAdd ? () => _sendFriendRequest(user) : null,
                 style: ElevatedButton.styleFrom(
@@ -408,7 +424,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
           ),
         );
       },
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      separatorBuilder: (_, __) => const SizedBox(height: AppSpacing.sm),
       itemCount: _suggestedUsers.length,
     );
   }
@@ -495,14 +511,13 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                           children.add(
                             Text(
                               'Incoming Friend Requests',
-                              style: TextStyle(
+                              style: AppTypography.titleMedium.copyWith(
                                 color: onSurface,
-                                fontSize: 16,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
                           );
-                          children.add(const SizedBox(height: 10));
+                          children.add(const SizedBox(height: AppSpacing.sm));
 
                           for (var i = 0; i < pendingRequests.length; i++) {
                             final request = pendingRequests[i];
@@ -519,8 +534,8 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                             children.add(
                               AppCard(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
+                                  horizontal: AppSpacing.md,
+                                  vertical: AppSpacing.sm,
                                 ),
                                 child: Row(
                                   children: [
@@ -528,7 +543,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                                       imageUrl: requester?.profilePictureUrl,
                                       radius: 20,
                                     ),
-                                    const SizedBox(width: 10),
+                                    const SizedBox(width: AppSpacing.sm),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
@@ -538,24 +553,22 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                                             requesterName,
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: onSurface,
-                                              fontSize: 15,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                            style: AppTypography.bodyLarge
+                                                .copyWith(
+                                                  color: onSurface,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                           ),
                                           if (requesterUsername.isNotEmpty)
                                             Text(
                                               '@$requesterUsername',
-                                              style: TextStyle(
-                                                color: secondary,
-                                                fontSize: 12,
-                                              ),
+                                              style: AppTypography.labelSmall
+                                                  .copyWith(color: secondary),
                                             ),
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: AppSpacing.sm),
                                     OutlinedButton(
                                       onPressed: isProcessing
                                           ? null
@@ -569,7 +582,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                                         ),
                                         minimumSize: const Size(0, 34),
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
+                                          horizontal: AppSpacing.md,
                                         ),
                                         textStyle: const TextStyle(
                                           fontWeight: FontWeight.w500,
@@ -577,7 +590,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                                       ),
                                       child: const Text('Decline'),
                                     ),
-                                    const SizedBox(width: 6),
+                                    const SizedBox(width: AppSpacing.xs),
                                     ElevatedButton(
                                       onPressed: isProcessing
                                           ? null
@@ -600,23 +613,26 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                             );
 
                             if (i != pendingRequests.length - 1) {
-                              children.add(const SizedBox(height: 10));
+                              children.add(
+                                const SizedBox(height: AppSpacing.sm),
+                              );
                             }
                           }
 
-                          children.add(const SizedBox(height: 16));
+                          children.add(const SizedBox(height: AppSpacing.lg));
                         }
 
                         if (friendIds.isEmpty) {
                           children.add(
                             Center(
                               child: Padding(
-                                padding: const EdgeInsets.only(top: 18),
+                                padding: const EdgeInsets.only(
+                                  top: AppSpacing.xl,
+                                ),
                                 child: Text(
                                   'No friends yet.',
-                                  style: TextStyle(
+                                  style: AppTypography.bodyLarge.copyWith(
                                     color: secondary,
-                                    fontSize: 16,
                                   ),
                                 ),
                               ),
@@ -626,10 +642,14 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                           children.add(
                             Center(
                               child: Padding(
-                                padding: const EdgeInsets.only(top: 18),
+                                padding: const EdgeInsets.only(
+                                  top: AppSpacing.xl,
+                                ),
                                 child: Text(
                                   'No friends match your search.',
-                                  style: TextStyle(color: secondary),
+                                  style: AppTypography.bodyMedium.copyWith(
+                                    color: secondary,
+                                  ),
                                 ),
                               ),
                             ),
@@ -676,18 +696,31 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                             final status = entry.status;
 
                             children.add(
-                              FriendPactCard(
-                                friend: friend,
-                                currentUserId: currentUser.userId,
-                                status: status,
-                                onCardTap: () =>
-                                    _openFriendProfile(friend: friend),
-                                onMessageTap: () =>
-                                    _openMessageScreen(friend: friend),
-                                onStatusTap: () => _openVerifierPacts(
-                                  friend: friend,
-                                  currentUserId: currentUser.userId,
+                              StreamBuilder<UserModel?>(
+                                stream: _firestoreService.streamUser(
+                                  friend.userId,
                                 ),
+                                initialData: friend,
+                                builder: (context, friendSnapshot) {
+                                  final liveFriend = friendSnapshot.data;
+                                  if (liveFriend == null) {
+                                    return const SizedBox.shrink();
+                                  }
+
+                                  return FriendPactCard(
+                                    friend: liveFriend,
+                                    currentUserId: currentUser.userId,
+                                    status: status,
+                                    onCardTap: () =>
+                                        _openFriendProfile(friend: liveFriend),
+                                    onMessageTap: () =>
+                                        _openMessageScreen(friend: liveFriend),
+                                    onStatusTap: () => _openVerifierPacts(
+                                      friend: liveFriend,
+                                      currentUserId: currentUser.userId,
+                                    ),
+                                  );
+                                },
                               ),
                             );
 
@@ -698,7 +731,12 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                         }
 
                         return ListView(
-                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.lg,
+                            AppSpacing.sm,
+                            AppSpacing.lg,
+                            AppSpacing.xl,
+                          ),
                           children: children,
                         );
                       },
@@ -823,21 +861,6 @@ class _FriendsTabViewState extends State<FriendsTabView> {
     );
   }
 
-  String _formatDuration(Duration duration) {
-    final safeDuration = duration.isNegative ? Duration.zero : duration;
-
-    if (safeDuration.inDays > 0) {
-      return '${safeDuration.inDays}d';
-    }
-    if (safeDuration.inHours > 0) {
-      return '${safeDuration.inHours}h';
-    }
-    if (safeDuration.inMinutes > 0) {
-      return '${safeDuration.inMinutes}m';
-    }
-    return '${safeDuration.inSeconds}s';
-  }
-
   Future<void> _openMessageScreen({required UserModel friend}) async {
     final currentUser = context.read<AuthProvider>().userModel;
     if (currentUser == null) {
@@ -948,16 +971,16 @@ class FriendPactCard extends StatelessWidget {
 
     return InkWell(
       onTap: onCardTap,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
       child: AppCard(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(AppSpacing.md),
         child: Column(
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppAvatar(imageUrl: friend.profilePictureUrl, radius: 24),
-                const SizedBox(width: 12),
+                const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -966,16 +989,17 @@ class FriendPactCard extends StatelessWidget {
                         title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
+                        style: AppTypography.headlineSmall.copyWith(
                           color: onSurface,
-                          fontSize: 22,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
                       if (username.isNotEmpty)
                         Text(
                           '@$username',
-                          style: TextStyle(color: secondary, fontSize: 13),
+                          style: AppTypography.bodySmall.copyWith(
+                            color: secondary,
+                          ),
                         ),
                     ],
                   ),
@@ -1065,23 +1089,25 @@ class FriendPactCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                _FriendStat(
-                  label: 'Streak',
-                  value: '${friend.stats.currentStreak}',
-                ),
-                const SizedBox(width: 24),
-                _FriendStat(
-                  label: 'Completed',
-                  value: '${friend.stats.totalPactsCompleted}',
-                ),
-                const SizedBox(width: 24),
-                _FriendStat(
-                  label: 'Failed',
-                  value: '${friend.stats.totalPactsFailed}',
-                ),
-              ],
+            StreamBuilder<List<PactModel>>(
+              stream: _firestoreService.streamUserPacts(friend.userId),
+              builder: (context, pactSnapshot) {
+                final pactStats = _derivePactStats(
+                  pactSnapshot.data ?? const <PactModel>[],
+                );
+                return Row(
+                  children: [
+                    _FriendStat(label: 'Streak', value: '${pactStats.streak}'),
+                    const SizedBox(width: 24),
+                    _FriendStat(
+                      label: 'Completed',
+                      value: '${pactStats.completed}',
+                    ),
+                    const SizedBox(width: 24),
+                    _FriendStat(label: 'Failed', value: '${pactStats.failed}'),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 12),
             FriendPactStatusLabel(status: status, onTap: onStatusTap),
@@ -1090,6 +1116,52 @@ class FriendPactCard extends StatelessWidget {
       ),
     );
   }
+
+  _FriendPactStats _derivePactStats(List<PactModel> pacts) {
+    final completed = pacts
+        .where((pact) => pact.status == PactStatus.completed)
+        .length;
+    final failed = pacts
+        .where((pact) => pact.status == PactStatus.failed)
+        .length;
+
+    final finished =
+        pacts
+            .where(
+              (pact) =>
+                  pact.status == PactStatus.completed ||
+                  pact.status == PactStatus.failed,
+            )
+            .toList()
+          ..sort((a, b) => b.deadline.compareTo(a.deadline));
+
+    var streak = 0;
+    for (final pact in finished) {
+      if (pact.status == PactStatus.completed) {
+        streak += 1;
+      } else {
+        break;
+      }
+    }
+
+    return _FriendPactStats(
+      streak: streak,
+      completed: completed,
+      failed: failed,
+    );
+  }
+}
+
+class _FriendPactStats {
+  const _FriendPactStats({
+    required this.streak,
+    required this.completed,
+    required this.failed,
+  });
+
+  final int streak;
+  final int completed;
+  final int failed;
 }
 
 class _FriendStat extends StatelessWidget {
@@ -1145,24 +1217,27 @@ class FriendPactStatusLabel extends StatelessWidget {
     final visual = _statusVisual(status.type);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
       onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: visual.background,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
           border: Border.all(color: visual.border),
         ),
         child: Row(
           children: [
             Icon(visual.icon, size: 18, color: visual.foreground),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
                 status.message,
-                style: TextStyle(
+                style: AppTypography.bodyMedium.copyWith(
                   color: visual.foreground,
                   fontWeight: FontWeight.w600,
                 ),

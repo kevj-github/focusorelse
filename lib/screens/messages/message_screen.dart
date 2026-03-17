@@ -4,6 +4,8 @@ import '../../models/chat_message_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../utils/time_label.dart';
 import '../../widgets/common/avatar.dart';
 
@@ -114,7 +116,7 @@ class _MessageScreenState extends State<MessageScreen> {
         title: Row(
           children: [
             AppAvatar(imageUrl: widget.friend.profilePictureUrl, radius: 16),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,16 +127,15 @@ class _MessageScreenState extends State<MessageScreen> {
                         'Friend',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: AppTypography.bodyMedium.copyWith(
                       color: onSurface,
                       fontWeight: FontWeight.w700,
-                      fontSize: 14,
                     ),
                   ),
                   if ((widget.friend.username ?? '').isNotEmpty)
                     Text(
                       '@${widget.friend.username}',
-                      style: TextStyle(color: secondary, fontSize: 12),
+                      style: AppTypography.caption.copyWith(color: secondary),
                     ),
                 ],
               ),
@@ -161,7 +162,9 @@ class _MessageScreenState extends State<MessageScreen> {
                   return Center(
                     child: Text(
                       'No messages yet. Say hello 👋',
-                      style: TextStyle(color: secondary),
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: secondary,
+                      ),
                     ),
                   );
                 }
@@ -169,7 +172,12 @@ class _MessageScreenState extends State<MessageScreen> {
                 return ListView.builder(
                   controller: _scrollController,
                   reverse: true,
-                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                    AppSpacing.md,
+                  ),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
                     final message = messages[index];
@@ -180,10 +188,10 @@ class _MessageScreenState extends State<MessageScreen> {
                           ? Alignment.centerRight
                           : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 9,
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
                         ),
                         constraints: const BoxConstraints(maxWidth: 290),
                         decoration: BoxDecoration(
@@ -192,7 +200,10 @@ class _MessageScreenState extends State<MessageScreen> {
                               : Theme.of(
                                   context,
                                 ).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(
+                            AppElevation.radiusMedium,
+                          ),
+                          boxShadow: isMine ? AppElevation.shadowSmall : null,
                         ),
                         child: Column(
                           crossAxisAlignment: isMine
@@ -201,18 +212,16 @@ class _MessageScreenState extends State<MessageScreen> {
                           children: [
                             Text(
                               message.text,
-                              style: TextStyle(
+                              style: AppTypography.bodyMedium.copyWith(
                                 color: isMine ? Colors.white : onSurface,
-                                fontSize: 14,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: AppSpacing.xs),
                             Text(
                               TimeLabel.formatRelativeShort(message.createdAt),
-                              style: TextStyle(
+                              style: AppTypography.labelSmall.copyWith(
                                 color: (isMine ? Colors.white : onSurface)
                                     .withValues(alpha: 0.7),
-                                fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -228,22 +237,39 @@ class _MessageScreenState extends State<MessageScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.sm,
+                AppSpacing.sm,
+                AppSpacing.sm,
+                AppSpacing.sm,
+              ),
               child: Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _messageController,
-                      minLines: 1,
-                      maxLines: 4,
-                      textInputAction: TextInputAction.newline,
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message...',
-                        isDense: true,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: AppElevation.inputRadius,
+                        boxShadow: AppElevation.shadowSmall,
+                      ),
+                      child: TextField(
+                        controller: _messageController,
+                        minLines: 1,
+                        maxLines: 4,
+                        textInputAction: TextInputAction.newline,
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: onSurface,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          hintStyle: AppTypography.bodyMedium.copyWith(
+                            color: secondary,
+                          ),
+                          isDense: true,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppSpacing.sm),
                   IconButton(
                     onPressed: _sending ? null : _sendMessage,
                     icon: _sending

@@ -13,6 +13,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../widgets/common/avatar.dart';
 
 class PactDetailsScreen extends StatefulWidget {
@@ -109,27 +111,32 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
               ),
               SafeArea(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xxl,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildDateBadge(pact, statusTheme),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: AppSpacing.lg),
                       _buildMainCard(
                         pact: pact,
                         statusTheme: statusTheme,
                         countdownText: countdown,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppSpacing.md),
                       _buildMetaCard(
                         pact: pact,
                         statusTheme: statusTheme,
                         isOwner: isOwner,
                         isVerifier: isVerifier,
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: AppSpacing.md),
                       _buildStakesCard(pact, statusTheme),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: AppSpacing.xl),
                       _buildActionArea(
                         pact: pact,
                         statusTheme: statusTheme,
@@ -186,27 +193,25 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
             children: [
               Text(
                 dayText,
-                style: const TextStyle(
+                style: AppTypography.displaySmall.copyWith(
                   color: Colors.white,
-                  fontSize: 32,
                   fontWeight: FontWeight.w800,
                 ),
               ),
               Text(
                 monthYearText,
-                style: const TextStyle(
+                style: AppTypography.label.copyWith(
                   color: AppColors.textSecondaryDark,
-                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppSpacing.sm),
         Text(
           weekdayText,
-          style: const TextStyle(
+          style: AppTypography.bodyMedium.copyWith(
             color: AppColors.textSecondaryDark,
             fontWeight: FontWeight.w600,
           ),
@@ -221,10 +226,15 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
     required String countdownText,
   }) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.lg,
+      ),
       decoration: BoxDecoration(
         color: AppColors.darkSurface.withValues(alpha: 0.96),
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(AppElevation.radiusXl),
         border: Border.all(color: statusTheme.main.withValues(alpha: 0.55)),
         boxShadow: [
           BoxShadow(
@@ -243,8 +253,8 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.sm,
             children: [
               _buildPill(
                 _statusLabel(pact).toUpperCase(),
@@ -259,17 +269,16 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           Text(
             pact.taskDescription,
-            style: const TextStyle(
+            style: AppTypography.headlineSmall.copyWith(
               color: Colors.white,
-              fontSize: 27,
               fontWeight: FontWeight.w800,
               height: 1.1,
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: AppSpacing.lg),
           Center(
             child: Container(
               width: 205,
@@ -289,7 +298,7 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
                   ),
                 ],
               ),
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
@@ -304,28 +313,25 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
                   children: [
                     Text(
                       'TIME LEFT',
-                      style: TextStyle(
+                      style: AppTypography.label.copyWith(
                         color: statusTheme.main,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
-                        fontSize: 12,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       countdownText,
-                      style: const TextStyle(
+                      style: AppTypography.displaySmall.copyWith(
                         color: Colors.white,
-                        fontSize: 39,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       'Deadline: ${DateFormat('h:mm a').format(pact.deadline)}',
-                      style: const TextStyle(
+                      style: AppTypography.bodySmall.copyWith(
                         color: AppColors.textSecondaryDark,
-                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -333,10 +339,10 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: AppSpacing.md),
           Text(
             'Due by ${DateFormat('EEE, MMM d • h:mm a').format(pact.deadline)}',
-            style: const TextStyle(
+            style: AppTypography.bodyMedium.copyWith(
               color: AppColors.textSecondaryDark,
               fontWeight: FontWeight.w600,
             ),

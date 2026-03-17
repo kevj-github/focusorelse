@@ -22,6 +22,9 @@ import '../pacts/pact_details_screen.dart';
 import '../profile/profile_screen.dart';
 import '../settings/settings_screen.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
+import '../../utils/animations.dart';
 import '../../widgets/common/avatar.dart';
 import '../../widgets/common/app_logo_bar.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
@@ -109,7 +112,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context) {
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 18),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -117,7 +125,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   leading: Icon(Icons.post_add, color: onSurface),
                   title: Text(
                     'Create Post',
-                    style: TextStyle(color: onSurface),
+                    style: AppTypography.bodyLarge.copyWith(color: onSurface),
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -139,7 +147,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   leading: Icon(Icons.flag_outlined, color: onSurface),
                   title: Text(
                     'Create Pact',
-                    style: TextStyle(color: onSurface),
+                    style: AppTypography.bodyLarge.copyWith(color: onSurface),
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -285,35 +293,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             return Padding(
               padding: EdgeInsets.fromLTRB(
-                20,
-                16,
-                20,
-                20 + MediaQuery.of(context).viewInsets.bottom,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.xl + MediaQuery.of(context).viewInsets.bottom,
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Create Post',
-                      style: TextStyle(
+                      style: AppTypography.titleLarge.copyWith(
                         color: AppColors.primary,
-                        fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     TextField(
                       controller: captionController,
                       maxLines: 3,
-                      style: TextStyle(color: onSurface),
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: onSurface,
+                      ),
                       decoration: const InputDecoration(
                         labelText: 'Caption',
                         hintText: 'What do you want to share?',
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -378,10 +387,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
@@ -394,7 +403,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Expanded(
                 child: Text(
                   'Preview',
-                  style: TextStyle(
+                  style: AppTypography.bodyMedium.copyWith(
                     color: onSurface,
                     fontWeight: FontWeight.w600,
                   ),
@@ -407,8 +416,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: TextButton.styleFrom(
                   foregroundColor: onSurface,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
+                    horizontal: AppSpacing.sm,
+                    vertical: AppSpacing.xs,
                   ),
                   minimumSize: const Size(0, 32),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -416,7 +425,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Center(child: _buildAdaptiveFileImagePreview(imageFile)),
         ],
       ),
@@ -438,7 +447,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final maxPreviewWidth = constraints.maxWidth.clamp(180.0, 230.0);
 
             return ClipRRect(
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
               child: Container(
                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
                 constraints: BoxConstraints(
@@ -633,12 +642,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: Material(
                     color: Theme.of(context).colorScheme.surface,
                     elevation: 12,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(
+                      AppElevation.radiusMedium,
+                    ),
                     clipBehavior: Clip.antiAlias,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxHeight: 430),
                       child: Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: StreamBuilder<List<Map<String, dynamic>>>(
                           stream: _firestoreService.streamUserNotifications(
                             userId,
@@ -739,14 +750,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           tiles.add(
                                             InkWell(
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(
+                                                    AppElevation.radiusMedium,
+                                                  ),
                                               onTap: () =>
                                                   handleAppNotificationTap(
                                                     notification,
                                                   ),
                                               child: Container(
                                                 padding: const EdgeInsets.all(
-                                                  12,
+                                                  AppSpacing.md,
                                                 ),
                                                 decoration: BoxDecoration(
                                                   color: isRead
@@ -760,7 +773,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                             .colorScheme
                                                             .surfaceContainerHighest,
                                                   borderRadius:
-                                                      BorderRadius.circular(12),
+                                                      BorderRadius.circular(
+                                                        AppElevation
+                                                            .radiusMedium,
+                                                      ),
                                                   border: Border.all(
                                                     color: isRead
                                                         ? AppColors.darkBorder
@@ -779,7 +795,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                       color: AppColors.primary,
                                                       size: 20,
                                                     ),
-                                                    const SizedBox(width: 10),
+                                                    const SizedBox(
+                                                      width: AppSpacing.sm,
+                                                    ),
                                                     Expanded(
                                                       child: Column(
                                                         crossAxisAlignment:
@@ -788,27 +806,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                         children: [
                                                           Text(
                                                             title,
-                                                            style: TextStyle(
-                                                              color: onSurface,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                              fontSize: 13,
-                                                            ),
+                                                            style: AppTypography
+                                                                .bodySmall
+                                                                .copyWith(
+                                                                  color:
+                                                                      onSurface,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                ),
                                                           ),
                                                           if (body.isNotEmpty)
                                                             Padding(
                                                               padding:
                                                                   const EdgeInsets.only(
-                                                                    top: 2,
+                                                                    top:
+                                                                        AppSpacing
+                                                                            .xs,
                                                                   ),
                                                               child: Text(
                                                                 body,
-                                                                style: TextStyle(
-                                                                  color:
-                                                                      secondary,
-                                                                  fontSize: 12,
-                                                                ),
+                                                                style: AppTypography
+                                                                    .label
+                                                                    .copyWith(
+                                                                      color:
+                                                                          secondary,
+                                                                    ),
                                                                 maxLines: 2,
                                                                 overflow:
                                                                     TextOverflow
@@ -819,7 +842,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                             Padding(
                                                               padding:
                                                                   const EdgeInsets.only(
-                                                                    top: 4,
+                                                                    top:
+                                                                        AppSpacing
+                                                                            .xs,
                                                                   ),
                                                               child: Text(
                                                                 DateFormat(
@@ -827,14 +852,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                                 ).format(
                                                                   createdAt,
                                                                 ),
-                                                                style: TextStyle(
-                                                                  color:
-                                                                      secondary,
-                                                                  fontSize: 11,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                ),
+                                                                style: AppTypography
+                                                                    .labelSmall
+                                                                    .copyWith(
+                                                                      color:
+                                                                          secondary,
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w600,
+                                                                    ),
                                                               ),
                                                             ),
                                                         ],
@@ -879,7 +905,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           tiles.add(
                                             InkWell(
                                               borderRadius:
-                                                  BorderRadius.circular(12),
+                                                  BorderRadius.circular(
+                                                    AppElevation.radiusMedium,
+                                                  ),
                                               onTap: () =>
                                                   handleAppNotificationTap({
                                                     'id': '',
@@ -890,14 +918,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   }),
                                               child: Container(
                                                 padding: const EdgeInsets.all(
-                                                  12,
+                                                  AppSpacing.md,
                                                 ),
                                                 decoration: BoxDecoration(
                                                   color: Theme.of(context)
                                                       .colorScheme
                                                       .surfaceContainerHighest,
                                                   borderRadius:
-                                                      BorderRadius.circular(12),
+                                                      BorderRadius.circular(
+                                                        AppElevation
+                                                            .radiusMedium,
+                                                      ),
                                                   border: Border.all(
                                                     color: AppColors.primary
                                                         .withValues(
@@ -915,7 +946,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                       color: AppColors.primary,
                                                       size: 20,
                                                     ),
-                                                    const SizedBox(width: 10),
+                                                    const SizedBox(
+                                                      width: AppSpacing.sm,
+                                                    ),
                                                     Expanded(
                                                       child: Column(
                                                         crossAxisAlignment:
@@ -924,27 +957,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                         children: [
                                                           Text(
                                                             title,
-                                                            style: TextStyle(
-                                                              color: onSurface,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w700,
-                                                              fontSize: 13,
-                                                            ),
+                                                            style: AppTypography
+                                                                .bodySmall
+                                                                .copyWith(
+                                                                  color:
+                                                                      onSurface,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w700,
+                                                                ),
                                                           ),
                                                           if (body.isNotEmpty)
                                                             Padding(
                                                               padding:
                                                                   const EdgeInsets.only(
-                                                                    top: 2,
+                                                                    top:
+                                                                        AppSpacing
+                                                                            .xs,
                                                                   ),
                                                               child: Text(
                                                                 body,
-                                                                style: TextStyle(
-                                                                  color:
-                                                                      secondary,
-                                                                  fontSize: 12,
-                                                                ),
+                                                                style: AppTypography
+                                                                    .label
+                                                                    .copyWith(
+                                                                      color:
+                                                                          secondary,
+                                                                    ),
                                                                 maxLines: 2,
                                                                 overflow:
                                                                     TextOverflow
@@ -976,13 +1014,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                                           tiles.add(
                                             Container(
-                                              padding: const EdgeInsets.all(12),
+                                              padding: const EdgeInsets.all(
+                                                AppSpacing.md,
+                                              ),
                                               decoration: BoxDecoration(
                                                 color: Theme.of(context)
                                                     .colorScheme
                                                     .surfaceContainerHighest,
                                                 borderRadius:
-                                                    BorderRadius.circular(12),
+                                                    BorderRadius.circular(
+                                                      AppElevation.radiusMedium,
+                                                    ),
                                               ),
                                               child: Row(
                                                 crossAxisAlignment:
@@ -993,7 +1035,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                         ?.profilePictureUrl,
                                                     radius: 18,
                                                   ),
-                                                  const SizedBox(width: 10),
+                                                  const SizedBox(
+                                                    width: AppSpacing.sm,
+                                                  ),
                                                   Expanded(
                                                     child: Column(
                                                       crossAxisAlignment:
@@ -1002,31 +1046,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                       children: [
                                                         Text(
                                                           '$senderName sent you a friend request.',
-                                                          style: TextStyle(
-                                                            color: onSurface,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            fontSize: 13,
-                                                          ),
+                                                          style: AppTypography
+                                                              .bodySmall
+                                                              .copyWith(
+                                                                color:
+                                                                    onSurface,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
                                                         ),
                                                         if (senderUsername
                                                             .isNotEmpty)
                                                           Padding(
                                                             padding:
                                                                 const EdgeInsets.only(
-                                                                  top: 2,
+                                                                  top:
+                                                                      AppSpacing
+                                                                          .xs,
                                                                 ),
                                                             child: Text(
                                                               '@$senderUsername',
-                                                              style: TextStyle(
-                                                                color:
-                                                                    secondary,
-                                                                fontSize: 12,
-                                                              ),
+                                                              style: AppTypography
+                                                                  .label
+                                                                  .copyWith(
+                                                                    color:
+                                                                        secondary,
+                                                                  ),
                                                             ),
                                                           ),
                                                         const SizedBox(
-                                                          height: 8,
+                                                          height: AppSpacing.sm,
                                                         ),
                                                         Row(
                                                           children: [
@@ -1051,23 +1101,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                                       0,
                                                                       34,
                                                                     ),
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      horizontal:
-                                                                          12,
-                                                                    ),
-                                                                textStyle: const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w500,
+                                                                padding: const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      AppSpacing
+                                                                          .md,
                                                                 ),
+                                                                textStyle: AppTypography
+                                                                    .label
+                                                                    .copyWith(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w500,
+                                                                    ),
                                                               ),
                                                               child: const Text(
                                                                 'Decline',
                                                               ),
                                                             ),
                                                             const SizedBox(
-                                                              width: 6,
+                                                              width:
+                                                                  AppSpacing.xs,
                                                             ),
                                                             ElevatedButton(
                                                               onPressed:
@@ -1089,16 +1142,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                                       0,
                                                                       34,
                                                                     ),
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      horizontal:
-                                                                          12,
-                                                                    ),
-                                                                textStyle: const TextStyle(
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w800,
+                                                                padding: const EdgeInsets.symmetric(
+                                                                  horizontal:
+                                                                      AppSpacing
+                                                                          .md,
                                                                 ),
+                                                                textStyle: AppTypography
+                                                                    .label
+                                                                    .copyWith(
+                                                                      fontWeight:
+                                                                          FontWeight
+                                                                              .w800,
+                                                                    ),
                                                               ),
                                                               child: Text(
                                                                 isProcessing
@@ -1130,12 +1185,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                                   color: secondary,
                                                   size: 26,
                                                 ),
-                                                const SizedBox(height: 10),
+                                                const SizedBox(
+                                                  height: AppSpacing.sm,
+                                                ),
                                                 Text(
                                                   'No notifications yet.',
-                                                  style: TextStyle(
-                                                    color: secondary,
-                                                  ),
+                                                  style: AppTypography
+                                                      .bodyMedium
+                                                      .copyWith(
+                                                        color: secondary,
+                                                      ),
                                                 ),
                                               ],
                                             ),
@@ -1149,13 +1208,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           children: [
                                             Text(
                                               'Notifications',
-                                              style: TextStyle(
-                                                color: onSurface,
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                              style: AppTypography.titleLarge
+                                                  .copyWith(
+                                                    color: onSurface,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
                                             ),
-                                            const SizedBox(height: 12),
+                                            const SizedBox(
+                                              height: AppSpacing.md,
+                                            ),
                                             Flexible(
                                               child: ListView.separated(
                                                 shrinkWrap: true,
@@ -1231,7 +1292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Center(
       child: Text(
         'Feed View - Coming Soon',
-        style: TextStyle(color: secondary, fontSize: 18),
+        style: AppTypography.titleMedium.copyWith(color: secondary),
       ),
     );
   }
@@ -1350,7 +1411,12 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
           },
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.xl,
+              AppSpacing.md,
+              AppSpacing.xl,
+              AppSpacing.xxl,
+            ),
             children: [
               _buildHeroHeader(
                 name:
@@ -1358,18 +1424,18 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     authProvider.userModel?.username ??
                     'User',
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
               _buildDashboardTabs(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppSpacing.lg),
               _buildCalendarCard(
                 pactMarkers,
                 activePacts: activePacts,
                 expiredPacts: expiredPacts,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppSpacing.xl),
               if (isLoading)
                 const Padding(
-                  padding: EdgeInsets.only(top: 48),
+                  padding: EdgeInsets.only(top: AppSpacing.xxxl),
                   child: Center(
                     child: CircularProgressIndicator(color: AppColors.primary),
                   ),
@@ -1382,16 +1448,16 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
               else ...[
                 if (featuredPact != null) ...[
                   _buildSectionTitle('Featured Active Pact'),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: AppSpacing.md),
                   _buildFeaturedPactCard(featuredPact),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: AppSpacing.xl),
                 ],
                 _buildSectionTitle(
                   _dashboardTabIndex == 0
                       ? 'Upcoming Pacts'
                       : 'Completed & Failed',
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 ...upcomingPacts
                     .take(6)
                     .map(
@@ -1402,10 +1468,12 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     ),
                 if (upcomingPacts.isEmpty)
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(AppSpacing.lg),
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(
+                        AppElevation.radiusMedium,
+                      ),
                       border: Border.all(
                         color: isDark
                             ? AppColors.darkBorder
@@ -1416,7 +1484,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                       _dashboardTabIndex == 0
                           ? 'No additional upcoming pacts.'
                           : 'No completed or failed pacts yet.',
-                      style: TextStyle(
+                      style: AppTypography.bodyMedium.copyWith(
                         color: isDark
                             ? AppColors.textSecondaryDark
                             : AppColors.textSecondaryLight,
@@ -1425,7 +1493,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   ),
               ],
               if (pactProvider.hasPendingConsequence) ...[
-                const SizedBox(height: 14),
+                const SizedBox(height: AppSpacing.md),
                 _buildConsequenceLockOverlayCard(
                   pactProvider.pendingConsequencePact,
                 ),
@@ -1442,7 +1510,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     return Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
         border: Border.all(
           color: (isDark ? AppColors.darkBorder : AppColors.lightBorder)
               .withValues(alpha: 0.9),
@@ -1469,11 +1537,12 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
           });
         },
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 13),
+          duration: AppAnimations.normal,
+          curve: AppAnimations.smoothOut,
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
             boxShadow: isSelected
                 ? [
                     BoxShadow(
@@ -1487,7 +1556,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: AppTypography.labelLarge.copyWith(
               fontWeight: FontWeight.w700,
               color: isSelected
                   ? Colors.white
@@ -1507,10 +1576,10 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         pendingConsequencePact?.consequenceStatus ==
         ConsequenceStatus.pendingApproval;
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: AppColors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
         border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
       ),
       child: Column(
@@ -1520,21 +1589,23 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
             waitingApproval
                 ? 'Consequence Evidence Submitted'
                 : 'Consequence Due',
-            style: TextStyle(
+            style: AppTypography.titleSmall.copyWith(
               color: onSurface,
               fontWeight: FontWeight.w800,
-              fontSize: 16,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             waitingApproval
                 ? 'Evidence submitted, waiting for approval. You cannot create pacts, posts, comments, likes, or chat messages until the verifier approves it.'
                 : 'Submit consequence evidence before you can create pacts, posts, comments, likes, or chat messages.',
-            style: TextStyle(color: onSurface, fontWeight: FontWeight.w600),
+            style: AppTypography.bodyMedium.copyWith(
+              color: onSurface,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (pendingConsequencePact != null) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: AppSpacing.sm),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -1571,10 +1642,15 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     final days = _buildMonthCells(_visibleMonth);
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(AppElevation.radiusLarge),
         border: Border.all(
           color: (isDark ? AppColors.darkBorder : AppColors.lightBorder)
               .withValues(alpha: 0.95),
@@ -1586,9 +1662,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
             children: [
               Text(
                 monthLabel,
-                style: TextStyle(
+                style: AppTypography.displaySmall.copyWith(
                   color: onSurface,
-                  fontSize: 28,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1628,9 +1703,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     child: Center(
                       child: Text(
                         label,
-                        style: TextStyle(
+                        style: AppTypography.labelSmall.copyWith(
                           color: secondary,
-                          fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1677,7 +1751,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   : secondary.withValues(alpha: 0.6);
 
               return InkWell(
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(AppElevation.radiusLarge),
                 onTap: () {
                   setState(() {
                     _selectedDate = day;
@@ -1694,7 +1768,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 },
                 child: Center(
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
+                    duration: AppAnimations.normal,
+                    curve: AppAnimations.smoothOut,
                     width: 28,
                     height: 28,
                     decoration: BoxDecoration(
@@ -1707,9 +1782,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                       children: [
                         Text(
                           day.day.toString().padLeft(2, '0'),
-                          style: TextStyle(
+                          style: AppTypography.labelSmall.copyWith(
                             color: dayTextColor,
-                            fontSize: 12,
                             fontWeight: isSelected
                                 ? FontWeight.w700
                                 : FontWeight.w500,
@@ -1747,7 +1821,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
   }) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
       onTap: onTap,
       child: SizedBox(
         width: 28,
@@ -1832,7 +1906,12 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
 
         return SafeArea(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.xl,
+            ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1841,43 +1920,49 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   child: Container(
                     width: 42,
                     height: 4,
-                    margin: const EdgeInsets.only(bottom: 12),
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
                     decoration: BoxDecoration(
                       color: Theme.of(context).dividerColor,
-                      borderRadius: BorderRadius.circular(99),
+                      borderRadius: BorderRadius.circular(
+                        AppElevation.radiusCircle,
+                      ),
                     ),
                   ),
                 ),
                 Text(
                   'Pacts on $dayLabel',
-                  style: TextStyle(
+                  style: AppTypography.titleLarge.copyWith(
                     color: onSurface,
-                    fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppSpacing.md),
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
                     itemCount: dayPacts.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    separatorBuilder: (_, __) =>
+                        const SizedBox(height: AppSpacing.sm),
                     itemBuilder: (context, index) {
                       final pact = dayPacts[index];
 
                       return InkWell(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(
+                          AppElevation.radiusMedium,
+                        ),
                         onTap: () {
                           Navigator.of(context).pop();
                           unawaited(_openPactDetails(pact));
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(AppSpacing.md),
                           decoration: BoxDecoration(
                             color: Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(
+                              AppElevation.radiusMedium,
+                            ),
                             border: Border.all(
                               color: isDark
                                   ? AppColors.darkBorder
@@ -1894,25 +1979,24 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                                       pact.taskDescription,
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
+                                      style: AppTypography.bodyLarge.copyWith(
                                         color: onSurface,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: AppSpacing.xs),
                                     Text(
                                       DateFormat(
                                         'h:mm a',
                                       ).format(pact.deadline),
-                                      style: TextStyle(
+                                      style: AppTypography.bodySmall.copyWith(
                                         color: secondary,
-                                        fontSize: 12,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: AppSpacing.sm),
                               _buildStatusBadge(
                                 label: _statusBadgeLabel(pact),
                                 color: _statusBadgeColor(pact),
@@ -1935,11 +2019,10 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
   Widget _buildSectionTitle(String text) {
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Padding(
-      padding: const EdgeInsets.only(left: 2),
+      padding: const EdgeInsets.only(left: AppSpacing.xs),
       child: Text(
         text,
-        style: TextStyle(
-          fontSize: 19,
+        style: AppTypography.titleMedium.copyWith(
           fontWeight: FontWeight.w800,
           color: onSurface,
           letterSpacing: 0.2,
@@ -1958,13 +2041,13 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     final countdownText = pact.timeRemainingFormatted;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
       onTap: () => _openPactDetails(pact),
       child: Container(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(AppSpacing.lg),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
           border: Border.all(
             color: isOverdue
                 ? AppColors.primary
@@ -1989,9 +2072,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 Expanded(
                   child: Text(
                     pact.taskDescription,
-                    style: TextStyle(
+                    style: AppTypography.titleMedium.copyWith(
                       color: onSurface,
-                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                     maxLines: 2,
@@ -2004,12 +2086,12 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: AppSpacing.md),
             Text(
               'Deadline: ${DateFormat('EEE, MMM d • h:mm a').format(pact.deadline)}',
-              style: TextStyle(color: secondary, fontSize: 14),
+              style: AppTypography.bodyMedium.copyWith(color: secondary),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppSpacing.sm),
             Row(
               children: [
                 Icon(
@@ -2019,18 +2101,17 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                       ? AppColors.primary
                       : AppColors.textSecondaryDark,
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: AppSpacing.xs),
                 Text(
                   isOverdue ? 'Overdue — action required' : countdownText,
-                  style: TextStyle(
+                  style: AppTypography.bodyLarge.copyWith(
                     color: isOverdue ? AppColors.accent : onSurface,
                     fontWeight: FontWeight.w700,
-                    fontSize: 15,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppSpacing.lg),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -2040,7 +2121,9 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(44),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(
+                      AppElevation.radiusSmall,
+                    ),
                   ),
                 ),
                 child: const Text('View Details'),
@@ -2054,17 +2137,19 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
 
   Widget _buildStatusBadge({required String label, required Color color}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.22),
         border: Border.all(color: color.withValues(alpha: 0.7)),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
       ),
       child: Text(
         label,
-        style: const TextStyle(
+        style: AppTypography.labelSmall.copyWith(
           color: Colors.white,
-          fontSize: 11,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.4,
         ),
@@ -2088,14 +2173,14 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         : (isOverdue ? 'FAILED' : pact.timeRemainingFormatted);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
       onTap: () => _openPactDetails(pact),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
+        margin: const EdgeInsets.only(bottom: AppSpacing.sm),
+        padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
           border: Border.all(
             color: showOverdue && isOverdue
                 ? AppColors.primary
@@ -2112,22 +2197,25 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     pact.taskDescription,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: AppTypography.bodyLarge.copyWith(
                       color: onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     DateFormat('MMM d • h:mm a').format(pact.deadline),
-                    style: TextStyle(color: secondary, fontSize: 13),
+                    style: AppTypography.bodySmall.copyWith(color: secondary),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: AppSpacing.xs,
+              ),
               decoration: BoxDecoration(
                 color: isHistoryCard
                     ? badgeColor.withValues(alpha: 0.2)
@@ -2136,16 +2224,15 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                           : Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
               ),
               child: Text(
                 badgeText,
-                style: TextStyle(
+                style: AppTypography.labelSmall.copyWith(
                   color: isHistoryCard
                       ? badgeColor
                       : (isOverdue ? AppColors.accent : secondary),
                   fontWeight: FontWeight.w600,
-                  fontSize: 11,
                 ),
               ),
             ),
@@ -2159,10 +2246,10 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
@@ -2170,13 +2257,13 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
       child: Column(
         children: [
           const Icon(Icons.error_outline, color: AppColors.primary, size: 32),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           Text(
             pactProvider.errorMessage ?? 'Unable to load pacts.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: onSurface),
+            style: AppTypography.bodyMedium.copyWith(color: onSurface),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: AppSpacing.md),
           OutlinedButton(
             onPressed: () {
               final uid = Provider.of<AuthProvider>(
@@ -2211,10 +2298,10 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     final isActive = _dashboardTabIndex == 0;
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
         ),
@@ -2231,19 +2318,18 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
             isActive
                 ? 'No active pacts right now'
                 : 'No completed or failed pacts yet',
-            style: TextStyle(
+            style: AppTypography.titleLarge.copyWith(
               color: onSurface,
-              fontSize: 17,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             isActive
                 ? 'Create a pact to start your countdown and stay accountable.'
                 : 'Completed and failed pacts will appear here.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: secondary),
+            style: AppTypography.bodyMedium.copyWith(color: secondary),
           ),
         ],
       ),
@@ -2261,9 +2347,14 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         ? AppColors.textSecondaryDark
         : AppColors.textSecondaryLight;
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.md,
+        AppSpacing.lg,
+        AppSpacing.md,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(AppElevation.radiusLarge),
         color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
         border: Border.all(
           color: (isDark ? AppColors.darkBorder : AppColors.lightBorder)
@@ -2275,16 +2366,15 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         children: [
           Text(
             'Dashboard',
-            style: TextStyle(
-              fontSize: 30,
+            style: AppTypography.displaySmall.copyWith(
               fontWeight: FontWeight.w800,
               color: onSurface,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppSpacing.xs),
           Text(
             'Welcome back, $name',
-            style: TextStyle(fontSize: 16, color: secondary),
+            style: AppTypography.bodyLarge.copyWith(color: secondary),
           ),
         ],
       ),

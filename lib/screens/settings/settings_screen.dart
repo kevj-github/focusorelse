@@ -4,6 +4,10 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
+import '../../widgets/common/app_button.dart';
+import '../../widgets/common/app_card.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -14,31 +18,40 @@ class SettingsScreen extends StatelessWidget {
     final authProvider = context.read<AuthProvider>();
 
     final isDark = themeProvider.isDarkMode;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.lg,
+          AppSpacing.xl,
+        ),
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: themeProvider.isDarkMode
-                    ? AppColors.darkBorder
-                    : AppColors.lightBorder,
-              ),
+          Text(
+            'Preferences',
+            style: AppTypography.titleMedium.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
             ),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppCard(
+            variant: AppCardVariant.outlined,
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: Row(
               children: [
                 const Icon(Icons.brightness_6_outlined),
-                const SizedBox(width: 12),
-                const Expanded(
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
                   child: Text(
                     'Dark mode',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    style: AppTypography.bodyLarge.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 Switch(
@@ -48,23 +61,27 @@ class SettingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                await authProvider.signOut();
-                if (!context.mounted) return;
-                Navigator.of(context).popUntil((route) => route.isFirst);
-              },
-              icon: const Icon(Icons.logout),
-              label: const Text('Sign out'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(46),
-              ),
+          const SizedBox(height: AppSpacing.xl),
+          Text(
+            'Account',
+            style: AppTypography.titleMedium.copyWith(
+              color: Theme.of(context).colorScheme.onSurface,
             ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Signed-in session and security actions',
+            style: AppTypography.bodyMedium.copyWith(color: secondary),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          AppButton(
+            label: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await authProvider.signOut();
+              if (!context.mounted) return;
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
           ),
         ],
       ),

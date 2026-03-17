@@ -14,6 +14,8 @@ import '../../providers/pact_provider.dart';
 import '../../providers/post_provider.dart';
 import '../../services/storage_service.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_input.dart';
@@ -102,7 +104,12 @@ class _ProfileScreenState extends State<ProfileScreen>
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  AppSpacing.lg,
+                  AppSpacing.xl,
+                  AppSpacing.sm,
+                ),
                 child: _ProfileHeader(
                   user: user,
                   onEditProfile: () =>
@@ -110,16 +117,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.xl,
+                  0,
+                  AppSpacing.xl,
+                  AppSpacing.sm,
+                ),
                 child: TabBar(
                   controller: _tabController,
                   indicatorSize: TabBarIndicatorSize.tab,
                   dividerColor: Colors.transparent,
                   labelColor: _onSurfaceColor(context),
                   unselectedLabelColor: _secondaryTextColor(context),
+                  labelStyle: AppTypography.labelLarge,
+                  unselectedLabelStyle: AppTypography.labelLarge,
                   indicator: const UnderlineTabIndicator(
                     borderSide: BorderSide(color: AppColors.primary, width: 3),
-                    insets: EdgeInsets.symmetric(horizontal: 28),
+                    insets: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
                   ),
                   tabs: const [
                     Tab(text: 'Posts'),
@@ -302,10 +316,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
             return Padding(
               padding: EdgeInsets.fromLTRB(
-                20,
-                18,
-                20,
-                20 + MediaQuery.of(context).viewInsets.bottom,
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.xl + MediaQuery.of(context).viewInsets.bottom,
               ),
               child: SingleChildScrollView(
                 child: Column(
@@ -314,17 +328,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                   children: [
                     Text(
                       'Edit Profile',
-                      style: TextStyle(
+                      style: AppTypography.titleLarge.copyWith(
                         color: _onSurfaceColor(context),
-                        fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: AppSpacing.md),
                     Center(
                       child: AppAvatar(imageUrl: uploadedPhotoUrl, radius: 42),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton.icon(
@@ -339,16 +352,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     AppInput(
                       controller: displayNameController,
                       label: 'Display Name',
                       hintText: 'How others will see your name',
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     TextField(
                       controller: usernameController,
-                      style: TextStyle(color: _onSurfaceColor(context)),
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: _onSurfaceColor(context),
+                      ),
                       onChanged: (value) {
                         final normalized = normalizeUsername(value);
                         if (value != normalized) {
@@ -407,29 +422,31 @@ class _ProfileScreenState extends State<ProfileScreen>
                         usernameError != null ||
                         usernameAvailable == true)
                       Padding(
-                        padding: const EdgeInsets.only(top: 8, left: 4),
+                        padding: const EdgeInsets.only(
+                          top: AppSpacing.sm,
+                          left: AppSpacing.xs,
+                        ),
                         child: Text(
                           isCheckingUsername
                               ? 'Checking username...'
                               : (usernameError ?? 'Username is available.'),
-                          style: TextStyle(
+                          style: AppTypography.label.copyWith(
                             color: isCheckingUsername
                                 ? _secondaryTextColor(context)
                                 : (usernameError != null
                                       ? AppColors.primary
                                       : AppColors.accent),
-                            fontSize: 12,
                           ),
                         ),
                       ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     AppInput(
                       controller: bioController,
                       label: 'Bio',
                       hintText: 'Write a short bio',
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppSpacing.lg),
                     AppButton(
                       label: 'Save Changes',
                       isLoading: isSaving,
@@ -460,11 +477,16 @@ class _ProfileHeader extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: AppCard(
-        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
         child: Row(
           children: [
             AppAvatar(imageUrl: user.profilePictureUrl, radius: 24),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -474,48 +496,45 @@ class _ProfileHeader extends StatelessWidget {
                     user.displayName ?? user.username ?? 'Focus User',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: AppTypography.titleLarge.copyWith(
                       color: _onSurfaceColor(context),
-                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   if ((user.username ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       '@${user.username}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
+                      style: AppTypography.labelSmall.copyWith(
                         color: _secondaryTextColor(context),
-                        fontSize: 12,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 3),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     (user.bio ?? '').trim().isEmpty
                         ? 'No bio yet. Tap Edit Profile to add one.'
                         : user.bio!.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: AppTypography.labelSmall.copyWith(
                       color: _secondaryTextColor(context),
-                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.sm),
             OutlinedButton.icon(
               onPressed: onEditProfile,
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: _borderColor(context)),
                 foregroundColor: _onSurfaceColor(context),
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.sm,
                 ),
                 minimumSize: const Size(0, 34),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -524,13 +543,15 @@ class _ProfileHeader extends StatelessWidget {
                   vertical: -1,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
                 ),
               ),
               icon: const Icon(Icons.edit_outlined, size: 15),
-              label: const Text(
+              label: Text(
                 'Edit',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                style: AppTypography.labelSmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -566,7 +587,7 @@ class _ProfilePostsTab extends StatelessWidget {
         }
 
         return GridView.builder(
-          padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
+          padding: const EdgeInsets.fromLTRB(0, AppSpacing.sm, 0, 0),
           itemCount: posts.length,
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 3,
@@ -620,6 +641,8 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
     final completedPacts = widget.pacts
         .where((p) => p.status == PactStatus.completed)
         .toList();
+    final currentStreak = _currentCompletionStreak(widget.pacts);
+    final longestStreak = _longestCompletionStreak(widget.pacts);
 
     final successRate = widget.pacts.isEmpty
         ? 0.0
@@ -628,7 +651,12 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
     final avgLeadHours = _averageCompletionLeadHours(completedPacts);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.md,
+        AppSpacing.xl,
+        AppSpacing.xl,
+      ),
       children: [
         Row(
           children: [
@@ -636,12 +664,12 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
               child: AppCard(
                 child: _MetricBlock(
                   title: 'Streak',
-                  value: '${widget.user.stats.currentStreak} day',
+                  value: '$currentStreak day',
                   subtitle: 'Current',
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: AppCard(
                 child: _MetricBlock(
@@ -660,12 +688,12 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
               child: AppCard(
                 child: _MetricBlock(
                   title: 'Longest Streak',
-                  value: '${widget.user.stats.longestStreak} day',
+                  value: '$longestStreak day',
                   subtitle: 'Best',
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: AppCard(
                 child: _MetricBlock(
@@ -677,7 +705,7 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.sm),
         AppCard(
           child: _MetricBlock(
             title: 'Avg Completion Lead Time',
@@ -685,56 +713,57 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
             subtitle: 'Before deadline',
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Pact Summary',
-                style: TextStyle(
+                style: AppTypography.titleMedium.copyWith(
                   color: _onSurfaceColor(context),
-                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppSpacing.md),
               Row(
                 children: [
                   Text(
                     'Interval',
-                    style: TextStyle(
+                    style: AppTypography.label.copyWith(
                       color: _secondaryTextColor(context),
-                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppSpacing.md),
                   Expanded(
                     child: DropdownButtonFormField<_StatsInterval>(
                       initialValue: _interval,
                       decoration: InputDecoration(
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
                         ),
                         filled: true,
                         fillColor: _surfaceColor(context),
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(
+                            AppElevation.radiusSmall,
+                          ),
                           borderSide: BorderSide(color: _borderColor(context)),
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(
+                            AppElevation.radiusSmall,
+                          ),
                           borderSide: BorderSide(color: _borderColor(context)),
                         ),
                       ),
                       dropdownColor: _surfaceVariantColor(context),
                       iconEnabledColor: _secondaryTextColor(context),
-                      style: TextStyle(
+                      style: AppTypography.labelSmall.copyWith(
                         color: _onSurfaceColor(context),
-                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                       items: const [
@@ -824,6 +853,55 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
 
     return (totalMinutes / leadDurations.length) / 60;
   }
+
+  int _currentCompletionStreak(List<PactModel> pacts) {
+    final finished =
+        pacts
+            .where(
+              (p) =>
+                  p.status == PactStatus.completed ||
+                  p.status == PactStatus.failed,
+            )
+            .toList()
+          ..sort((a, b) => b.deadline.compareTo(a.deadline));
+
+    var streak = 0;
+    for (final pact in finished) {
+      if (pact.status == PactStatus.completed) {
+        streak += 1;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  int _longestCompletionStreak(List<PactModel> pacts) {
+    final finished =
+        pacts
+            .where(
+              (p) =>
+                  p.status == PactStatus.completed ||
+                  p.status == PactStatus.failed,
+            )
+            .toList()
+          ..sort((a, b) => a.deadline.compareTo(b.deadline));
+
+    var longest = 0;
+    var current = 0;
+    for (final pact in finished) {
+      if (pact.status == PactStatus.completed) {
+        current += 1;
+        if (current > longest) {
+          longest = current;
+        }
+      } else {
+        current = 0;
+      }
+    }
+
+    return longest;
+  }
 }
 
 class _PactSummaryChart extends StatelessWidget {
@@ -847,7 +925,9 @@ class _PactSummaryChart extends StatelessWidget {
         child: Center(
           child: Text(
             'No data for selected filter.',
-            style: TextStyle(color: _secondaryTextColor(context)),
+            style: AppTypography.bodyMedium.copyWith(
+              color: _secondaryTextColor(context),
+            ),
           ),
         ),
       );
@@ -887,20 +967,21 @@ class _PactSummaryChart extends StatelessWidget {
 
           return Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
                     '$modeValue',
-                    style: TextStyle(
+                    style: AppTypography.labelSmall.copyWith(
                       color: _secondaryTextColor(context),
-                      fontSize: 11,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: AppSpacing.xs),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(
+                      AppElevation.radiusSmall,
+                    ),
                     child: mode == _ChartMode.both
                         ? SizedBox(
                             height: totalHeight,
@@ -926,12 +1007,11 @@ class _PactSummaryChart extends StatelessWidget {
                                 : AppColors.accent,
                           ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     p.label,
-                    style: TextStyle(
+                    style: AppTypography.labelSmall.copyWith(
                       color: _secondaryTextColor(context),
-                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -1040,21 +1120,24 @@ class _MetricBlock extends StatelessWidget {
       children: [
         Text(
           title,
-          style: TextStyle(color: _secondaryTextColor(context), fontSize: 12),
+          style: AppTypography.label.copyWith(
+            color: _secondaryTextColor(context),
+          ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           value,
-          style: TextStyle(
+          style: AppTypography.headlineSmall.copyWith(
             color: _onSurfaceColor(context),
-            fontSize: 26,
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppSpacing.xs),
         Text(
           subtitle,
-          style: TextStyle(color: _secondaryTextColor(context), fontSize: 12),
+          style: AppTypography.label.copyWith(
+            color: _secondaryTextColor(context),
+          ),
         ),
       ],
     );
@@ -1076,19 +1159,21 @@ class _ChoiceChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : _surfaceColor(context),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
           border: Border.all(color: _borderColor(context)),
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: AppTypography.labelSmall.copyWith(
             color: selected ? Colors.white : _secondaryTextColor(context),
-            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -1112,10 +1197,12 @@ class _LegendDot extends StatelessWidget {
           height: 10,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: AppSpacing.xs),
         Text(
           label,
-          style: TextStyle(color: _secondaryTextColor(context), fontSize: 12),
+          style: AppTypography.label.copyWith(
+            color: _secondaryTextColor(context),
+          ),
         ),
       ],
     );
@@ -1128,22 +1215,22 @@ class _ProfileLoadingState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(AppSpacing.xl),
       children: [
         Container(
           height: 260,
           decoration: BoxDecoration(
             color: _surfaceVariantColor(context),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
             border: Border.all(color: _borderColor(context)),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: AppSpacing.lg),
         Container(
           height: 240,
           decoration: BoxDecoration(
             color: _surfaceVariantColor(context),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
             border: Border.all(color: _borderColor(context)),
           ),
         ),
@@ -1168,7 +1255,7 @@ class _ProfileEmptyState extends StatelessWidget {
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(AppSpacing.xl),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1177,23 +1264,21 @@ class _ProfileEmptyState extends StatelessWidget {
                       color: _secondaryTextColor(context),
                       size: 34,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: AppTypography.titleLarge.copyWith(
                         color: _onSurfaceColor(context),
-                        fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       subtitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: AppTypography.bodySmall.copyWith(
                         color: _secondaryTextColor(context),
-                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -1223,7 +1308,7 @@ class _ProfileErrorState extends StatelessWidget {
             constraints: BoxConstraints(minHeight: constraints.maxHeight),
             child: Center(
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(AppSpacing.xl),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1232,16 +1317,15 @@ class _ProfileErrorState extends StatelessWidget {
                       color: AppColors.primary,
                       size: 34,
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: AppSpacing.sm),
                     Text(
                       message,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: AppTypography.bodyMedium.copyWith(
                         color: _onSurfaceColor(context),
-                        fontSize: 14,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppSpacing.md),
                     if (onRetry != null)
                       SizedBox(
                         width: 180,
@@ -1328,11 +1412,13 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
             titleSpacing: 0,
             title: Text(
               username,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+              style: AppTypography.bodyLarge.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             actions: const [
               Padding(
-                padding: EdgeInsets.only(right: 8),
+                padding: EdgeInsets.only(right: AppSpacing.sm),
                 child: Icon(Icons.more_horiz),
               ),
             ],
@@ -1346,19 +1432,18 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
                         ),
                         child: Row(
                           children: [
                             AppAvatar(imageUrl: avatarUrl, radius: 16),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: Text(
                                 username,
-                                style: TextStyle(
+                                style: AppTypography.bodySmall.copyWith(
                                   color: _onSurfaceColor(context),
-                                  fontSize: 13,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1391,7 +1476,12 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                          AppSpacing.md,
+                          0,
+                        ),
                         child: Row(
                           children: [
                             StreamBuilder<bool>(
@@ -1491,28 +1581,36 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.xs,
+                          AppSpacing.md,
+                          0,
+                        ),
                         child: Text(
                           '${currentPost.likeCount} likes',
-                          style: TextStyle(
+                          style: AppTypography.bodySmall.copyWith(
                             color: _onSurfaceColor(context),
-                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 6, 12, 0),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.xs,
+                          AppSpacing.md,
+                          0,
+                        ),
                         child: RichText(
                           text: TextSpan(
-                            style: TextStyle(
+                            style: AppTypography.bodySmall.copyWith(
                               color: _onSurfaceColor(context),
-                              fontSize: 13,
                             ),
                             children: [
                               TextSpan(
                                 text: '$username ',
-                                style: const TextStyle(
+                                style: AppTypography.bodySmall.copyWith(
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -1522,17 +1620,21 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                         ),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                          AppSpacing.md,
+                          0,
+                        ),
                         child: Text(
                           _formatPostAge(currentPost.createdAt),
-                          style: TextStyle(
+                          style: AppTypography.labelSmall.copyWith(
                             color: _secondaryTextColor(context),
-                            fontSize: 11,
                             letterSpacing: 0.4,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                       Divider(
                         color: _borderColor(context),
                         height: 1,
@@ -1547,12 +1649,16 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
 
                           if (comments.isEmpty) {
                             return Padding(
-                              padding: EdgeInsets.fromLTRB(12, 12, 12, 4),
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.md,
+                                AppSpacing.md,
+                                AppSpacing.md,
+                                AppSpacing.xs,
+                              ),
                               child: Text(
                                 'No comments yet. Start the conversation.',
-                                style: TextStyle(
+                                style: AppTypography.bodySmall.copyWith(
                                   color: _secondaryTextColor(context),
-                                  fontSize: 13,
                                 ),
                               ),
                             );
@@ -1563,8 +1669,13 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                             physics: const NeverScrollableScrollPhysics(),
                             itemCount: comments.length,
                             separatorBuilder: (_, _) =>
-                                const SizedBox(height: 8),
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                                const SizedBox(height: AppSpacing.sm),
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              AppSpacing.sm,
+                            ),
                             itemBuilder: (context, index) {
                               final comment = comments[index];
                               final commentUsername =
@@ -1583,20 +1694,20 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                                     imageUrl: comment.authorProfilePictureUrl,
                                     radius: 14,
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: AppSpacing.sm),
                                   Expanded(
                                     child: RichText(
                                       text: TextSpan(
-                                        style: TextStyle(
+                                        style: AppTypography.bodySmall.copyWith(
                                           color: _onSurfaceColor(context),
-                                          fontSize: 13,
                                         ),
                                         children: [
                                           TextSpan(
                                             text: '$commentUsername ',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                            style: AppTypography.bodySmall
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
                                           ),
                                           TextSpan(text: comment.text),
                                         ],
@@ -1609,7 +1720,7 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppSpacing.md),
                     ],
                   ),
                 ),
@@ -1620,11 +1731,16 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                       top: BorderSide(color: _borderColor(context)),
                     ),
                   ),
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                  ),
                   child: widget.currentUser.hasPendingConsequence
                       ? Text(
                           'Comments are locked until your pending consequence is approved.',
-                          style: TextStyle(
+                          style: AppTypography.bodySmall.copyWith(
                             color: _onSurfaceColor(context),
                             fontWeight: FontWeight.w600,
                           ),
@@ -1635,19 +1751,19 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                               imageUrl: widget.currentUser.profilePictureUrl,
                               radius: 14,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: AppSpacing.sm),
                             Expanded(
                               child: TextField(
                                 controller: _commentController,
                                 focusNode: _commentFocusNode,
                                 minLines: 1,
                                 maxLines: 3,
-                                style: TextStyle(
+                                style: AppTypography.bodyMedium.copyWith(
                                   color: _onSurfaceColor(context),
                                 ),
                                 decoration: InputDecoration(
                                   hintText: 'Add a comment...',
-                                  hintStyle: TextStyle(
+                                  hintStyle: AppTypography.bodyMedium.copyWith(
                                     color: _secondaryTextColor(context),
                                   ),
                                   isDense: true,
@@ -1661,7 +1777,7 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                                   : () => _submitComment(currentPost.postId),
                               child: Text(
                                 _isSubmittingComment ? 'Posting...' : 'Post',
-                                style: const TextStyle(
+                                style: AppTypography.bodyMedium.copyWith(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.w700,
                                 ),

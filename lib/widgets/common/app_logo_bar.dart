@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../theme/colors.dart';
 
 class AppLogoBar extends StatelessWidget implements PreferredSizeWidget {
   final Key? notificationKey;
@@ -20,8 +19,18 @@ class AppLogoBar extends StatelessWidget implements PreferredSizeWidget {
     return AppBar(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       elevation: 0,
-      titleSpacing: 24, // <-- nudges the logo right (default is ~16)
-      title: Image.asset('assets/images/full.png', height: 32),
+      titleSpacing: 16,
+      title: SizedBox(
+        height: 34,
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Image.asset(
+            'assets/images/full.png',
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          ),
+        ),
+      ),
       actions: [
         IconButton(
           key: notificationKey,

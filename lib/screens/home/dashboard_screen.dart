@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
@@ -16,6 +18,7 @@ import '../../services/firestore_service.dart';
 import '../../services/storage_service.dart';
 import '../create_pact/create_pact_screen.dart';
 import '../friends/friends_tab_view.dart';
+import '../pacts/pact_details_screen.dart';
 import '../profile/profile_screen.dart';
 import '../settings/settings_screen.dart';
 import '../../theme/colors.dart';
@@ -51,6 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     if (authProvider.firebaseUser != null) {
       final userId = authProvider.firebaseUser!.uid;
+      unawaited(pactProvider.registerNotificationUser(userId));
       pactProvider.loadActivePacts(userId);
       pactProvider.loadCompletedPacts(userId);
       pactProvider.loadPactsToVerify(userId);
@@ -59,6 +63,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _openCreatePactFlow() async {
+    final pactProvider = Provider.of<PactProvider>(context, listen: false);
+    if (pactProvider.hasPendingConsequence) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Pact creation is locked until your pending consequence is approved.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
     final created = await Navigator.of(
       context,
     ).push<bool>(MaterialPageRoute(builder: (_) => const CreatePactScreen()));
@@ -73,16 +90,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Pact created successfully.'),
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.success,
         ),
       );
     }
   }
 
   Future<void> _openCreateActionSheet() async {
+    final pactProvider = Provider.of<PactProvider>(context, listen: false);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -94,21 +114,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  leading: const Icon(Icons.post_add, color: Colors.white),
-                  title: const Text(
+                  leading: Icon(Icons.post_add, color: onSurface),
+                  title: Text(
                     'Create Post',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: onSurface),
                   ),
                   onTap: () {
                     Navigator.pop(context);
+                    if (pactProvider.hasPendingConsequence) {
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Posting is locked until your pending consequence is approved.',
+                          ),
+                          backgroundColor: AppColors.primary,
+                        ),
+                      );
+                      return;
+                    }
                     _openCreatePostFlow();
                   },
                 ),
                 ListTile(
-                  leading: const Icon(Icons.flag_outlined, color: Colors.white),
-                  title: const Text(
+                  leading: Icon(Icons.flag_outlined, color: onSurface),
+                  title: Text(
                     'Create Pact',
-                    style: TextStyle(color: Colors.white),
+                    style: TextStyle(color: onSurface),
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -129,6 +160,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final storageService = StorageService();
     final user = authProvider.userModel;
     final userId = authProvider.firebaseUser?.uid;
+    final pactProvider = Provider.of<PactProvider>(context, listen: false);
+
+    if (pactProvider.hasPendingConsequence) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Posting is locked until your pending consequence is approved.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
 
     if (user == null || userId == null) return;
 
@@ -141,13 +185,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
+            final onSurface = Theme.of(context).colorScheme.onSurface;
             Future<void> pickImage() async {
               final picked = await imagePicker.pickImage(
                 source: ImageSource.gallery,
@@ -204,7 +249,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       const SnackBar(
                         content: Text('Post published.'),
-                        backgroundColor: AppColors.primary,
+                        backgroundColor: AppColors.success,
                       ),
                     );
                   });
@@ -253,7 +298,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const Text(
                       'Create Post',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.primary,
                         fontSize: 20,
                         fontWeight: FontWeight.w700,
                       ),
@@ -262,7 +307,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     TextField(
                       controller: captionController,
                       maxLines: 3,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: onSurface),
                       decoration: const InputDecoration(
                         labelText: 'Caption',
                         hintText: 'What do you want to share?',
@@ -283,14 +328,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                     if (selectedImage != null) ...[
                       const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.file(
-                          selectedImage!,
-                          height: 170,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
+                      _buildCreatePostImagePreview(
+                        selectedImage!,
+                        onRemove: () {
+                          setModalState(() {
+                            selectedImage = null;
+                          });
+                        },
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -325,6 +369,120 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ).whenComplete(() {
       sheetActive = false;
     });
+  }
+
+  Widget _buildCreatePostImagePreview(
+    File imageFile, {
+    required VoidCallback onRemove,
+  }) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Preview',
+                  style: TextStyle(
+                    color: onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onRemove,
+                icon: const Icon(Icons.close_rounded, size: 16),
+                label: const Text('Remove'),
+                style: TextButton.styleFrom(
+                  foregroundColor: onSurface,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  minimumSize: const Size(0, 32),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Center(child: _buildAdaptiveFileImagePreview(imageFile)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAdaptiveFileImagePreview(File imageFile) {
+    return FutureBuilder<ui.Size>(
+      future: _resolveFileImageSize(imageFile),
+      builder: (context, snapshot) {
+        final resolvedAspectRatio = snapshot.hasData
+            ? (snapshot.data!.width / snapshot.data!.height)
+                  .clamp(0.7, 1.8)
+                  .toDouble()
+            : 4 / 3;
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final maxPreviewWidth = constraints.maxWidth.clamp(180.0, 230.0);
+
+            return ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                constraints: BoxConstraints(
+                  maxWidth: maxPreviewWidth,
+                  maxHeight: 220,
+                ),
+                child: AspectRatio(
+                  aspectRatio: resolvedAspectRatio,
+                  child: Image.file(imageFile, fit: BoxFit.contain),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<ui.Size> _resolveFileImageSize(File imageFile) {
+    final imageProvider = FileImage(imageFile);
+    final completer = Completer<ui.Size>();
+    final imageStream = imageProvider.resolve(const ImageConfiguration());
+    late final ImageStreamListener listener;
+
+    listener = ImageStreamListener(
+      (imageInfo, _) {
+        final image = imageInfo.image;
+        if (!completer.isCompleted) {
+          completer.complete(
+            ui.Size(image.width.toDouble(), image.height.toDouble()),
+          );
+        }
+        imageStream.removeListener(listener);
+      },
+      onError: (_, __) {
+        if (!completer.isCompleted) {
+          completer.complete(const ui.Size(4, 3));
+        }
+        imageStream.removeListener(listener);
+      },
+    );
+
+    imageStream.addListener(listener);
+    return completer.future;
   }
 
   Future<void> _openNotificationsPopup() async {
@@ -413,7 +571,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ? 'Friend request accepted.'
                           : 'Friend request declined.',
                     ),
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.success,
                   ),
                 );
               } catch (_) {
@@ -434,6 +592,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     processingIds.remove(request.friendshipId);
                   });
                 }
+              }
+            }
+
+            Future<void> handleAppNotificationTap(
+              Map<String, dynamic> notification,
+            ) async {
+              final notificationId = (notification['id'] ?? '').toString();
+              final pactId = (notification['pactId'] ?? '').toString();
+
+              if (notificationId.isNotEmpty) {
+                await _firestoreService.markNotificationAsRead(notificationId);
+              }
+
+              if (sheetContext.mounted) {
+                Navigator.of(sheetContext).pop();
+              }
+
+              if (pactId.isNotEmpty && mounted) {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => PactDetailsScreen(pactId: pactId),
+                  ),
+                );
               }
             }
 
@@ -458,84 +639,329 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       constraints: const BoxConstraints(maxHeight: 430),
                       child: Padding(
                         padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
-                        child: StreamBuilder<List<FriendModel>>(
-                          stream: _firestoreService.streamPendingFriendRequests(
+                        child: StreamBuilder<List<Map<String, dynamic>>>(
+                          stream: _firestoreService.streamUserNotifications(
                             userId,
                           ),
-                          builder: (context, pendingSnapshot) {
-                            if (pendingSnapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const SizedBox(
-                                height: 220,
-                                child: Center(
-                                  child: CircularProgressIndicator(
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              );
-                            }
+                          builder: (context, appNotificationSnapshot) {
+                            final appNotifications =
+                                appNotificationSnapshot.data ??
+                                const <Map<String, dynamic>>[];
 
-                            final pendingRequests =
-                                pendingSnapshot.data ?? const <FriendModel>[];
-                            if (pendingRequests.isEmpty) {
-                              return SizedBox(
-                                height: 220,
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.notifications_none_outlined,
-                                      color: secondary,
-                                      size: 26,
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Text(
-                                      'No notifications yet.',
-                                      style: TextStyle(color: secondary),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-
-                            final requesterIds = pendingRequests
-                                .map((request) => request.userId)
-                                .toSet()
-                                .toList();
-
-                            return FutureBuilder<List<UserModel>>(
-                              future: _firestoreService.getUsersByIds(
-                                requesterIds,
-                              ),
-                              builder: (context, usersSnapshot) {
-                                final users =
-                                    usersSnapshot.data ?? const <UserModel>[];
-                                final usersById = <String, UserModel>{
-                                  for (final user in users) user.userId: user,
-                                };
-
-                                return Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Notifications',
-                                      style: TextStyle(
-                                        color: onSurface,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w700,
+                            return StreamBuilder<List<FriendModel>>(
+                              stream: _firestoreService
+                                  .streamPendingFriendRequests(userId),
+                              builder: (context, pendingSnapshot) {
+                                if (pendingSnapshot.connectionState ==
+                                        ConnectionState.waiting &&
+                                    appNotificationSnapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                  return const SizedBox(
+                                    height: 220,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        color: AppColors.primary,
                                       ),
                                     ),
-                                    const SizedBox(height: 12),
-                                    Flexible(
-                                      child: ListView.separated(
-                                        shrinkWrap: true,
-                                        itemCount: pendingRequests.length,
-                                        separatorBuilder: (_, __) =>
-                                            const SizedBox(height: 10),
-                                        itemBuilder: (context, index) {
-                                          final request =
-                                              pendingRequests[index];
+                                  );
+                                }
+
+                                final pendingRequests =
+                                    pendingSnapshot.data ??
+                                    const <FriendModel>[];
+                                final existingPactIds = appNotifications
+                                    .map(
+                                      (notification) =>
+                                          (notification['pactId'] ?? '')
+                                              .toString(),
+                                    )
+                                    .where((id) => id.isNotEmpty)
+                                    .toSet();
+                                final requesterIds = pendingRequests
+                                    .map((request) => request.userId)
+                                    .toSet()
+                                    .toList();
+
+                                return StreamBuilder<List<PactModel>>(
+                                  stream: _firestoreService
+                                      .streamPactsForVerifier(userId),
+                                  builder: (context, verifierSnapshot) {
+                                    final verifierPacts =
+                                        verifierSnapshot.data ??
+                                        const <PactModel>[];
+
+                                    return FutureBuilder<List<UserModel>>(
+                                      future: requesterIds.isEmpty
+                                          ? Future.value(const <UserModel>[])
+                                          : _firestoreService.getUsersByIds(
+                                              requesterIds,
+                                            ),
+                                      builder: (context, usersSnapshot) {
+                                        final users =
+                                            usersSnapshot.data ??
+                                            const <UserModel>[];
+                                        final usersById = <String, UserModel>{
+                                          for (final user in users)
+                                            user.userId: user,
+                                        };
+
+                                        final tiles = <Widget>[];
+
+                                        for (final notification
+                                            in appNotifications) {
+                                          final type =
+                                              (notification['type'] ?? '')
+                                                  .toString();
+                                          final title =
+                                              (notification['title'] ??
+                                                      'Notification')
+                                                  .toString();
+                                          final body =
+                                              (notification['body'] ?? '')
+                                                  .toString();
+                                          final isRead =
+                                              notification['read'] == true;
+                                          final createdAtRaw =
+                                              notification['createdAt'];
+                                          DateTime? createdAt;
+                                          if (createdAtRaw is Timestamp) {
+                                            createdAt = createdAtRaw.toDate();
+                                          }
+
+                                          final icon = switch (type) {
+                                            'verifier-assigned' =>
+                                              Icons.assignment_ind_outlined,
+                                            'consequence-review-required' =>
+                                              Icons.rule_folder_outlined,
+                                            _ => Icons.verified_outlined,
+                                          };
+
+                                          tiles.add(
+                                            InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              onTap: () =>
+                                                  handleAppNotificationTap(
+                                                    notification,
+                                                  ),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: isRead
+                                                      ? Theme.of(context)
+                                                            .colorScheme
+                                                            .surfaceContainerHighest
+                                                            .withValues(
+                                                              alpha: 0.65,
+                                                            )
+                                                      : Theme.of(context)
+                                                            .colorScheme
+                                                            .surfaceContainerHighest,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: isRead
+                                                        ? AppColors.darkBorder
+                                                        : AppColors.primary
+                                                              .withValues(
+                                                                alpha: 0.35,
+                                                              ),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Icon(
+                                                      icon,
+                                                      color: AppColors.primary,
+                                                      size: 20,
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            title,
+                                                            style: TextStyle(
+                                                              color: onSurface,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              fontSize: 13,
+                                                            ),
+                                                          ),
+                                                          if (body.isNotEmpty)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    top: 2,
+                                                                  ),
+                                                              child: Text(
+                                                                body,
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      secondary,
+                                                                  fontSize: 12,
+                                                                ),
+                                                                maxLines: 2,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                          if (createdAt != null)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    top: 4,
+                                                                  ),
+                                                              child: Text(
+                                                                DateFormat(
+                                                                  'MMM d, h:mm a',
+                                                                ).format(
+                                                                  createdAt,
+                                                                ),
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      secondary,
+                                                                  fontSize: 11,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        for (final pact in verifierPacts) {
+                                          if (existingPactIds.contains(
+                                            pact.pactId,
+                                          )) {
+                                            continue;
+                                          }
+
+                                          final needsApproval =
+                                              pact.status ==
+                                                  PactStatus
+                                                      .verificationPending ||
+                                              (pact.status ==
+                                                      PactStatus.failed &&
+                                                  pact.consequenceStatus ==
+                                                      ConsequenceStatus
+                                                          .pendingApproval);
+                                          final newlyAssigned =
+                                              pact.status == PactStatus.active;
+
+                                          if (!needsApproval &&
+                                              !newlyAssigned) {
+                                            continue;
+                                          }
+
+                                          final title = needsApproval
+                                              ? 'Waiting for your approval'
+                                              : 'New pact assigned to you';
+                                          final body = pact.taskDescription;
+
+                                          tiles.add(
+                                            InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              onTap: () =>
+                                                  handleAppNotificationTap({
+                                                    'id': '',
+                                                    'pactId': pact.pactId,
+                                                    'title': title,
+                                                    'body': body,
+                                                    'read': false,
+                                                  }),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(
+                                                  12,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: AppColors.primary
+                                                        .withValues(
+                                                          alpha: 0.35,
+                                                        ),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons
+                                                          .assignment_ind_outlined,
+                                                      color: AppColors.primary,
+                                                      size: 20,
+                                                    ),
+                                                    const SizedBox(width: 10),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          Text(
+                                                            title,
+                                                            style: TextStyle(
+                                                              color: onSurface,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w700,
+                                                              fontSize: 13,
+                                                            ),
+                                                          ),
+                                                          if (body.isNotEmpty)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.only(
+                                                                    top: 2,
+                                                                  ),
+                                                              child: Text(
+                                                                body,
+                                                                style: TextStyle(
+                                                                  color:
+                                                                      secondary,
+                                                                  fontSize: 12,
+                                                                ),
+                                                                maxLines: 2,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        for (final request in pendingRequests) {
                                           final requester =
                                               usersById[request.userId];
                                           final senderName =
@@ -548,118 +974,203 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                           final isProcessing = processingIds
                                               .contains(request.friendshipId);
 
-                                          return Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .surfaceContainerHighest,
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                            ),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                AppAvatar(
-                                                  imageUrl: requester
-                                                      ?.profilePictureUrl,
-                                                  radius: 18,
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Expanded(
-                                                  child: Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
-                                                    children: [
-                                                      Text(
-                                                        '$senderName sent you a friend request.',
-                                                        style: TextStyle(
-                                                          color: onSurface,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontSize: 13,
-                                                        ),
-                                                      ),
-                                                      if (senderUsername
-                                                          .isNotEmpty)
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                top: 2,
-                                                              ),
-                                                          child: Text(
-                                                            '@$senderUsername',
-                                                            style: TextStyle(
-                                                              color: secondary,
-                                                              fontSize: 12,
-                                                            ),
+                                          tiles.add(
+                                            Container(
+                                              padding: const EdgeInsets.all(12),
+                                              decoration: BoxDecoration(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .surfaceContainerHighest,
+                                                borderRadius:
+                                                    BorderRadius.circular(12),
+                                              ),
+                                              child: Row(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  AppAvatar(
+                                                    imageUrl: requester
+                                                        ?.profilePictureUrl,
+                                                    radius: 18,
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          '$senderName sent you a friend request.',
+                                                          style: TextStyle(
+                                                            color: onSurface,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                            fontSize: 13,
                                                           ),
                                                         ),
-                                                      const SizedBox(height: 8),
-                                                      Row(
-                                                        children: [
-                                                          TextButton(
-                                                            onPressed:
-                                                                isProcessing
-                                                                ? null
-                                                                : () =>
-                                                                      handleRequestAction(
-                                                                        request,
-                                                                        false,
-                                                                      ),
-                                                            child: const Text(
-                                                              'Decline',
-                                                            ),
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 6,
-                                                          ),
-                                                          ElevatedButton(
-                                                            onPressed:
-                                                                isProcessing
-                                                                ? null
-                                                                : () =>
-                                                                      handleRequestAction(
-                                                                        request,
-                                                                        true,
-                                                                      ),
-                                                            style: ElevatedButton.styleFrom(
-                                                              backgroundColor:
-                                                                  AppColors
-                                                                      .success,
-                                                              foregroundColor:
-                                                                  Colors.white,
-                                                              minimumSize:
-                                                                  const Size(
-                                                                    0,
-                                                                    34,
-                                                                  ),
-                                                              padding:
-                                                                  const EdgeInsets.symmetric(
-                                                                    horizontal:
-                                                                        12,
-                                                                  ),
-                                                            ),
+                                                        if (senderUsername
+                                                            .isNotEmpty)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                  top: 2,
+                                                                ),
                                                             child: Text(
-                                                              isProcessing
-                                                                  ? '...'
-                                                                  : 'Accept',
+                                                              '@$senderUsername',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    secondary,
+                                                                fontSize: 12,
+                                                              ),
                                                             ),
                                                           ),
-                                                        ],
-                                                      ),
-                                                    ],
+                                                        const SizedBox(
+                                                          height: 8,
+                                                        ),
+                                                        Row(
+                                                          children: [
+                                                            OutlinedButton(
+                                                              onPressed:
+                                                                  isProcessing
+                                                                  ? null
+                                                                  : () => handleRequestAction(
+                                                                      request,
+                                                                      false,
+                                                                    ),
+                                                              style: OutlinedButton.styleFrom(
+                                                                foregroundColor:
+                                                                    AppColors
+                                                                        .primary,
+                                                                side: const BorderSide(
+                                                                  color: AppColors
+                                                                      .primary,
+                                                                ),
+                                                                minimumSize:
+                                                                    const Size(
+                                                                      0,
+                                                                      34,
+                                                                    ),
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          12,
+                                                                    ),
+                                                                textStyle: const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w500,
+                                                                ),
+                                                              ),
+                                                              child: const Text(
+                                                                'Decline',
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 6,
+                                                            ),
+                                                            ElevatedButton(
+                                                              onPressed:
+                                                                  isProcessing
+                                                                  ? null
+                                                                  : () => handleRequestAction(
+                                                                      request,
+                                                                      true,
+                                                                    ),
+                                                              style: ElevatedButton.styleFrom(
+                                                                backgroundColor:
+                                                                    AppColors
+                                                                        .primary,
+                                                                foregroundColor:
+                                                                    Colors
+                                                                        .white,
+                                                                minimumSize:
+                                                                    const Size(
+                                                                      0,
+                                                                      34,
+                                                                    ),
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      horizontal:
+                                                                          12,
+                                                                    ),
+                                                                textStyle: const TextStyle(
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w800,
+                                                                ),
+                                                              ),
+                                                              child: Text(
+                                                                isProcessing
+                                                                    ? '...'
+                                                                    : 'Accept',
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        }
+
+                                        if (tiles.isEmpty) {
+                                          return SizedBox(
+                                            height: 220,
+                                            child: Column(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Icon(
+                                                  Icons
+                                                      .notifications_none_outlined,
+                                                  color: secondary,
+                                                  size: 26,
+                                                ),
+                                                const SizedBox(height: 10),
+                                                Text(
+                                                  'No notifications yet.',
+                                                  style: TextStyle(
+                                                    color: secondary,
                                                   ),
                                                 ),
                                               ],
                                             ),
                                           );
-                                        },
-                                      ),
-                                    ),
-                                  ],
+                                        }
+
+                                        return Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Notifications',
+                                              style: TextStyle(
+                                                color: onSurface,
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            Flexible(
+                                              child: ListView.separated(
+                                                shrinkWrap: true,
+                                                itemCount: tiles.length,
+                                                separatorBuilder: (_, __) =>
+                                                    const SizedBox(height: 10),
+                                                itemBuilder: (context, index) =>
+                                                    tiles[index],
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
                                 );
                               },
                             );
@@ -760,10 +1271,20 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     super.dispose();
   }
 
+  Future<void> _openPactDetails(PactModel pact) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            PactDetailsScreen(pactId: pact.pactId, initialPact: pact),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final pactProvider = Provider.of<PactProvider>(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final activePacts = List<PactModel>.from(pactProvider.activePacts)
       ..sort((a, b) => a.deadline.compareTo(b.deadline));
@@ -797,7 +1318,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 radius: 1.15,
                 colors: [
                   AppColors.primary.withValues(alpha: 0.08),
-                  AppColors.darkBackground,
+                  Theme.of(context).scaffoldBackgroundColor,
                 ],
               ),
             ),
@@ -862,11 +1383,13 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 if (featuredPact != null) ...[
                   _buildSectionTitle('Featured Active Pact'),
                   const SizedBox(height: 12),
-                  _buildFeaturedPactCard(context, featuredPact),
+                  _buildFeaturedPactCard(featuredPact),
                   const SizedBox(height: 24),
                 ],
                 _buildSectionTitle(
-                  _dashboardTabIndex == 0 ? 'Upcoming Pacts' : 'Expired Pacts',
+                  _dashboardTabIndex == 0
+                      ? 'Upcoming Pacts'
+                      : 'Completed & Failed',
                 ),
                 const SizedBox(height: 12),
                 ...upcomingPacts
@@ -881,19 +1404,31 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.darkSurface,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.darkBorder),
+                      border: Border.all(
+                        color: isDark
+                            ? AppColors.darkBorder
+                            : AppColors.lightBorder,
+                      ),
                     ),
                     child: Text(
                       _dashboardTabIndex == 0
                           ? 'No additional upcoming pacts.'
-                          : 'No expired/completed pacts yet.',
-                      style: const TextStyle(
-                        color: AppColors.textSecondaryDark,
+                          : 'No completed or failed pacts yet.',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppColors.textSecondaryDark
+                            : AppColors.textSecondaryLight,
                       ),
                     ),
                   ),
+              ],
+              if (pactProvider.hasPendingConsequence) ...[
+                const SizedBox(height: 14),
+                _buildConsequenceLockOverlayCard(
+                  pactProvider.pendingConsequencePact,
+                ),
               ],
             ],
           ),
@@ -903,16 +1438,20 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
   }
 
   Widget _buildDashboardTabs() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.darkSurface.withValues(alpha: 0.85),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder.withValues(alpha: 0.9)),
+        border: Border.all(
+          color: (isDark ? AppColors.darkBorder : AppColors.lightBorder)
+              .withValues(alpha: 0.9),
+        ),
       ),
       child: Row(
         children: [
           _buildTabButton(label: 'Active', index: 0),
-          _buildTabButton(label: 'Expired', index: 1),
+          _buildTabButton(label: 'History', index: 1),
         ],
       ),
     );
@@ -920,6 +1459,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
 
   Widget _buildTabButton({required String label, required int index}) {
     final isSelected = _dashboardTabIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Expanded(
       child: GestureDetector(
@@ -949,10 +1489,69 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontWeight: FontWeight.w700,
-              color: isSelected ? Colors.white : AppColors.textSecondaryDark,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark
+                        ? AppColors.textSecondaryDark
+                        : AppColors.textSecondaryLight),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildConsequenceLockOverlayCard(PactModel? pendingConsequencePact) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final waitingApproval =
+        pendingConsequencePact?.consequenceStatus ==
+        ConsequenceStatus.pendingApproval;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            waitingApproval
+                ? 'Consequence Evidence Submitted'
+                : 'Consequence Due',
+            style: TextStyle(
+              color: onSurface,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            waitingApproval
+                ? 'Evidence submitted, waiting for approval. You cannot create pacts, posts, comments, likes, or chat messages until the verifier approves it.'
+                : 'Submit consequence evidence before you can create pacts, posts, comments, likes, or chat messages.',
+            style: TextStyle(color: onSurface, fontWeight: FontWeight.w600),
+          ),
+          if (pendingConsequencePact != null) ...[
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _openPactDetails(pendingConsequencePact),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(
+                  waitingApproval
+                      ? 'View Submission Status'
+                      : 'Submit Consequence Evidence',
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -962,6 +1561,11 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     required List<PactModel> activePacts,
     required List<PactModel> expiredPacts,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     final monthLabel = DateFormat('MMMM').format(_visibleMonth);
     final weekdayLabels = const ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
     final days = _buildMonthCells(_visibleMonth);
@@ -969,9 +1573,12 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface.withValues(alpha: 0.9),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.darkBorder.withValues(alpha: 0.95)),
+        border: Border.all(
+          color: (isDark ? AppColors.darkBorder : AppColors.lightBorder)
+              .withValues(alpha: 0.95),
+        ),
       ),
       child: Column(
         children: [
@@ -979,8 +1586,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
             children: [
               Text(
                 monthLabel,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: onSurface,
                   fontSize: 28,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1021,8 +1628,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     child: Center(
                       child: Text(
                         label,
-                        style: const TextStyle(
-                          color: AppColors.textSecondaryDark,
+                        style: TextStyle(
+                          color: secondary,
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1066,8 +1673,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   : hasActiveDeadline
                   ? Colors.white
                   : isCurrentMonth
-                  ? Colors.white
-                  : AppColors.textSecondaryDark.withValues(alpha: 0.5);
+                  ? onSurface
+                  : secondary.withValues(alpha: 0.6);
 
               return InkWell(
                 borderRadius: BorderRadius.circular(16),
@@ -1138,13 +1745,14 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     required IconData icon,
     required VoidCallback onTap,
   }) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
       child: SizedBox(
         width: 28,
         height: 28,
-        child: Icon(icon, color: Colors.white, size: 22),
+        child: Icon(icon, color: onSurface, size: 22),
       ),
     );
   }
@@ -1210,11 +1818,16 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: AppColors.darkSurface,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final onSurface = Theme.of(context).colorScheme.onSurface;
+        final secondary = isDark
+            ? AppColors.textSecondaryDark
+            : AppColors.textSecondaryLight;
         final dayLabel = DateFormat('EEE, MMM d').format(day);
 
         return SafeArea(
@@ -1230,15 +1843,15 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 12),
                     decoration: BoxDecoration(
-                      color: AppColors.darkBorder,
+                      color: Theme.of(context).dividerColor,
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
                 ),
                 Text(
                   'Pacts on $dayLabel',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1251,49 +1864,61 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
                       final pact = dayPacts[index];
-                      final isActive = pact.status == PactStatus.active;
 
-                      return Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: AppColors.darkBackground,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.darkBorder),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    pact.taskDescription,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          Navigator.of(context).pop();
+                          unawaited(_openPactDetails(pact));
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.lightBorder,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      pact.taskDescription,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: onSurface,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    DateFormat('h:mm a').format(pact.deadline),
-                                    style: const TextStyle(
-                                      color: AppColors.textSecondaryDark,
-                                      fontSize: 12,
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      DateFormat(
+                                        'h:mm a',
+                                      ).format(pact.deadline),
+                                      style: TextStyle(
+                                        color: secondary,
+                                        fontSize: 12,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            _buildStatusBadge(
-                              label: isActive ? 'ACTIVE' : 'EXPIRED',
-                              color: isActive
-                                  ? AppColors.primary
-                                  : AppColors.accent,
-                            ),
-                          ],
+                              const SizedBox(width: 8),
+                              _buildStatusBadge(
+                                label: _statusBadgeLabel(pact),
+                                color: _statusBadgeColor(pact),
+                              ),
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -1308,119 +1933,121 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
   }
 
   Widget _buildSectionTitle(String text) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Padding(
       padding: const EdgeInsets.only(left: 2),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 19,
           fontWeight: FontWeight.w800,
-          color: Colors.white,
+          color: onSurface,
           letterSpacing: 0.2,
         ),
       ),
     );
   }
 
-  Widget _buildFeaturedPactCard(BuildContext context, PactModel pact) {
+  Widget _buildFeaturedPactCard(PactModel pact) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     final isOverdue = pact.isOverdue;
     final countdownText = pact.timeRemainingFormatted;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isOverdue ? AppColors.primary : AppColors.darkBorder,
-          width: isOverdue ? 1.5 : 1,
-        ),
-        boxShadow: [
-          BoxShadow(
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: () => _openPactDetails(pact),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
             color: isOverdue
-                ? AppColors.primary.withValues(alpha: 0.2)
-                : Colors.black.withValues(alpha: 0.22),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+                ? AppColors.primary
+                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+            width: isOverdue ? 1.5 : 1,
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  pact.taskDescription,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
+          boxShadow: [
+            BoxShadow(
+              color: isOverdue
+                  ? AppColors.primary.withValues(alpha: 0.2)
+                  : Colors.black.withValues(alpha: 0.22),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    pact.taskDescription,
+                    style: TextStyle(
+                      color: onSurface,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                _buildStatusBadge(
+                  label: isOverdue ? 'FAILED' : 'ONGOING',
+                  color: isOverdue ? AppColors.accent : AppColors.primary,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Text(
+              'Deadline: ${DateFormat('EEE, MMM d • h:mm a').format(pact.deadline)}',
+              style: TextStyle(color: secondary, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule,
+                  size: 18,
+                  color: isOverdue
+                      ? AppColors.primary
+                      : AppColors.textSecondaryDark,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isOverdue ? 'Overdue — action required' : countdownText,
+                  style: TextStyle(
+                    color: isOverdue ? AppColors.accent : onSurface,
                     fontWeight: FontWeight.w700,
+                    fontSize: 15,
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              _buildStatusBadge(
-                label: isOverdue ? 'OVERDUE' : 'ACTIVE',
-                color: AppColors.primary,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            'Deadline: ${DateFormat('EEE, MMM d • h:mm a').format(pact.deadline)}',
-            style: const TextStyle(
-              color: AppColors.textSecondaryDark,
-              fontSize: 14,
+              ],
             ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                Icons.schedule,
-                size: 18,
-                color: isOverdue
-                    ? AppColors.primary
-                    : AppColors.textSecondaryDark,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                isOverdue ? 'Overdue — action required' : countdownText,
-                style: TextStyle(
-                  color: isOverdue ? AppColors.primary : Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Evidence submission flow coming soon.'),
-                    backgroundColor: AppColors.primary,
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => _openPactDetails(pact),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                minimumSize: const Size.fromHeight(44),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
                 ),
+                child: const Text('View Details'),
               ),
-              child: const Text('Submit Evidence'),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1446,80 +2073,99 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
   }
 
   Widget _buildUpcomingPactCard(PactModel pact, {required bool showOverdue}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     final isOverdue = pact.isOverdue;
+    final isHistoryCard = !showOverdue;
+    final badgeColor = isHistoryCard
+        ? _statusBadgeColor(pact)
+        : (isOverdue ? AppColors.accent : AppColors.darkBackground);
+    final badgeText = isHistoryCard
+        ? pact.timeRemainingFormatted
+        : (isOverdue ? 'FAILED' : pact.timeRemainingFormatted);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.darkSurface.withValues(alpha: 0.88),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: showOverdue && isOverdue
-              ? AppColors.primary
-              : AppColors.darkBorder,
-        ),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  pact.taskDescription,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  DateFormat('MMM d • h:mm a').format(pact.deadline),
-                  style: const TextStyle(
-                    color: AppColors.textSecondaryDark,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _openPactDetails(pact),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: showOverdue && isOverdue
+                ? AppColors.primary
+                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
           ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: showOverdue && isOverdue
-                  ? AppColors.primary.withValues(alpha: 0.2)
-                  : AppColors.darkBackground,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              showOverdue && isOverdue
-                  ? 'OVERDUE'
-                  : pact.timeRemainingFormatted,
-              style: TextStyle(
-                color: showOverdue && isOverdue
-                    ? AppColors.primary
-                    : AppColors.textSecondaryDark,
-                fontWeight: FontWeight.w600,
-                fontSize: 11,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pact.taskDescription,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: onSurface,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    DateFormat('MMM d • h:mm a').format(pact.deadline),
+                    style: TextStyle(color: secondary, fontSize: 13),
+                  ),
+                ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: isHistoryCard
+                    ? badgeColor.withValues(alpha: 0.2)
+                    : (isOverdue
+                          ? AppColors.accent.withValues(alpha: 0.2)
+                          : Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHighest),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                badgeText,
+                style: TextStyle(
+                  color: isHistoryCard
+                      ? badgeColor
+                      : (isOverdue ? AppColors.accent : secondary),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildErrorState(BuildContext context, PactProvider pactProvider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+        ),
       ),
       child: Column(
         children: [
@@ -1528,7 +2174,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
           Text(
             pactProvider.errorMessage ?? 'Unable to load pacts.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: onSurface),
           ),
           const SizedBox(height: 12),
           OutlinedButton(
@@ -1544,8 +2190,10 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
               }
             },
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: AppColors.darkBorder),
+              foregroundColor: onSurface,
+              side: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+              ),
             ),
             child: const Text('Retry'),
           ),
@@ -1555,27 +2203,36 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     final isActive = _dashboardTabIndex == 0;
 
     return Container(
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        color: AppColors.darkSurface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.darkBorder),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+        ),
       ),
       child: Column(
         children: [
           Icon(
             isActive ? Icons.flag_outlined : Icons.history,
             size: 42,
-            color: AppColors.textSecondaryDark,
+            color: secondary,
           ),
           const SizedBox(height: 12),
           Text(
-            isActive ? 'No active pacts right now' : 'No expired pacts yet',
-            style: const TextStyle(
-              color: Colors.white,
+            isActive
+                ? 'No active pacts right now'
+                : 'No completed or failed pacts yet',
+            style: TextStyle(
+              color: onSurface,
               fontSize: 17,
               fontWeight: FontWeight.w700,
             ),
@@ -1584,9 +2241,9 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
           Text(
             isActive
                 ? 'Create a pact to start your countdown and stay accountable.'
-                : 'Completed and expired pacts will appear here.',
+                : 'Completed and failed pacts will appear here.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: AppColors.textSecondaryDark),
+            style: TextStyle(color: secondary),
           ),
         ],
       ),
@@ -1598,35 +2255,66 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
   }
 
   Widget _buildHeroHeader({required String name}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: AppColors.darkSurface.withValues(alpha: 0.35),
-        border: Border.all(color: AppColors.darkBorder.withValues(alpha: 0.7)),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.6),
+        border: Border.all(
+          color: (isDark ? AppColors.darkBorder : AppColors.lightBorder)
+              .withValues(alpha: 0.75),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Dashboard',
             style: TextStyle(
               fontSize: 30,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: onSurface,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Welcome back, $name',
-            style: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textSecondaryDark,
-            ),
+            style: TextStyle(fontSize: 16, color: secondary),
           ),
         ],
       ),
     );
+  }
+
+  String _statusBadgeLabel(PactModel pact) {
+    switch (pact.status) {
+      case PactStatus.active:
+        return pact.isOverdue ? 'FAILED' : 'ONGOING';
+      case PactStatus.completed:
+        return 'COMPLETED';
+      case PactStatus.failed:
+        return 'FAILED';
+      case PactStatus.verificationPending:
+        return 'PENDING';
+    }
+  }
+
+  Color _statusBadgeColor(PactModel pact) {
+    switch (pact.status) {
+      case PactStatus.active:
+        return pact.isOverdue ? AppColors.accent : AppColors.primary;
+      case PactStatus.completed:
+        return AppColors.completed;
+      case PactStatus.failed:
+        return AppColors.accent;
+      case PactStatus.verificationPending:
+        return AppColors.warning;
+    }
   }
 }
 

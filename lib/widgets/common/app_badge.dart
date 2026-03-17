@@ -9,12 +9,16 @@ class AppBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: highlight
             ? AppColors.primary.withValues(alpha: 0.2)
-            : AppColors.darkBorder,
+            : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -22,7 +26,7 @@ class AppBadge extends StatelessWidget {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: highlight ? AppColors.primary : AppColors.textSecondaryDark,
+          color: highlight ? AppColors.primary : secondary,
         ),
       ),
     );

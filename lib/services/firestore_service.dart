@@ -16,6 +16,8 @@ class FirestoreService {
   CollectionReference get _friendsCollection => _db.collection('friends');
   CollectionReference get _postsCollection => _db.collection('posts');
   CollectionReference get _chatsCollection => _db.collection('chats');
+  CollectionReference get _notificationsCollection =>
+      _db.collection('notifications');
 
   String normalizeUsername(String value) {
     final lower = value.trim().toLowerCase();
@@ -184,6 +186,106 @@ class FirestoreService {
     }
   }
 
+  Future<void> updateUserConsequenceLock({
+    required String userId,
+    required bool hasPendingConsequence,
+  }) async {
+    try {
+      await _usersCollection.doc(userId).set({
+        'hasPendingConsequence': hasPendingConsequence,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error updating user consequence lock: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> userHasPendingConsequence(String userId) async {
+    try {
+      final doc = await _usersCollection.doc(userId).get();
+      if (!doc.exists) {
+        return false;
+      }
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      return data['hasPendingConsequence'] == true;
+    } catch (e) {
+      print('Error reading user consequence lock: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> updateUserFcmToken({
+    required String userId,
+    required String token,
+  }) async {
+    try {
+      await _usersCollection.doc(userId).set({
+        'fcmToken': token,
+        'fcmTokenUpdatedAt': Timestamp.now(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      print('Error updating user FCM token: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> createAppNotification({
+    required String recipientUserId,
+    required String type,
+    required String title,
+    required String body,
+    String? pactId,
+    String? actorUserId,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      await _notificationsCollection.add({
+        'recipientUserId': recipientUserId,
+        'actorUserId': actorUserId,
+        'type': type,
+        'title': title,
+        'body': body,
+        'pactId': pactId,
+        'read': false,
+        'createdAt': Timestamp.now(),
+        'data': data ?? <String, dynamic>{},
+      });
+    } catch (e) {
+      print('Error creating app notification: $e');
+      rethrow;
+    }
+  }
+
+  Stream<List<Map<String, dynamic>>> streamUserNotifications(
+    String userId, {
+    int limit = 25,
+  }) {
+    return _notificationsCollection
+        .where('recipientUserId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final raw =
+                doc.data() as Map<String, dynamic>? ?? <String, dynamic>{};
+            return {...raw, 'id': doc.id};
+          }).toList(),
+        );
+  }
+
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _notificationsCollection.doc(notificationId).update({
+        'read': true,
+        'readAt': Timestamp.now(),
+      });
+    } catch (e) {
+      print('Error marking notification as read: $e');
+      rethrow;
+    }
+  }
+
   // Delete user
   Future<void> deleteUser(String userId) async {
     try {
@@ -285,6 +387,17 @@ class FirestoreService {
       print('Error getting pact: $e');
       rethrow;
     }
+  }
+
+  // Stream pact by ID
+  Stream<PactModel?> streamPact(String pactId) {
+    return _pactsCollection.doc(pactId).snapshots().map((doc) {
+      if (!doc.exists) {
+        return null;
+      }
+
+      return PactModel.fromFirestore(doc);
+    });
   }
 
   // Update pact
@@ -788,6 +901,21 @@ class FirestoreService {
         );
   }
 
+  Stream<List<PactModel>> streamPactsForVerifierByFriend({
+    required String verifierId,
+    required String friendId,
+  }) {
+    return _pactsCollection
+        .where('verifierId', isEqualTo: verifierId)
+        .where('userId', isEqualTo: friendId)
+        .orderBy('deadline', descending: false)
+        .snapshots()
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => PactModel.fromFirestore(doc)).toList(),
+        );
+  }
+
   // CHAT OPERATIONS
 
   String getChatId(String userIdA, String userIdB) {
@@ -837,6 +965,23 @@ class FirestoreService {
         return rawCount.toInt();
       }
       return 0;
+    });
+  }
+
+  Stream<DateTime?> streamLastMessageAt({
+    required String currentUserId,
+    required String friendUserId,
+  }) {
+    final chatId = getChatId(currentUserId, friendUserId);
+
+    return _chatsCollection.doc(chatId).snapshots().map((doc) {
+      if (!doc.exists) {
+        return null;
+      }
+
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      final timestamp = data['lastMessageAt'] as Timestamp?;
+      return timestamp?.toDate();
     });
   }
 

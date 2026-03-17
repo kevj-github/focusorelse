@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../models/pact_model.dart';
+import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/pact_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
 import '../../widgets/common/app_button.dart';
+import '../../widgets/common/avatar.dart';
 
 enum CreateVerificationMethod { friend, ai }
 
@@ -24,7 +26,6 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
 
   final FirestoreService _firestoreService = FirestoreService();
   final TextEditingController _taskController = TextEditingController();
-  final TextEditingController _verifierController = TextEditingController();
 
   final List<String> _categories = const [
     'Study',
@@ -41,7 +42,8 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   FriendProofType _selectedFriendProofType = FriendProofType.both;
   ConsequenceType? _selectedConsequence;
 
-  List<String> _friendUserIds = [];
+  List<UserModel> _friendUsers = [];
+  String? _selectedVerifierUserId;
   bool _loadingFriends = true;
   bool _attemptedSubmit = false;
   bool _isSuccess = false;
@@ -55,7 +57,6 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   @override
   void dispose() {
     _taskController.dispose();
-    _verifierController.dispose();
     super.dispose();
   }
 
@@ -65,7 +66,8 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
 
     if (userId == null) {
       setState(() {
-        _friendUserIds = [];
+        _friendUsers = [];
+        _selectedVerifierUserId = null;
         _loadingFriends = false;
         _selectedVerificationMethod = CreateVerificationMethod.ai;
       });
@@ -76,46 +78,46 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
       final friendIds = await _firestoreService.getAcceptedFriendUserIds(
         userId,
       );
+      final friendUsers = await _firestoreService.getUsersByIds(friendIds);
       if (!mounted) return;
 
+      final sortedFriendUsers = List<UserModel>.from(friendUsers)
+        ..sort((a, b) {
+          final aLabel = _userDisplayLabel(a).toLowerCase();
+          final bLabel = _userDisplayLabel(b).toLowerCase();
+          return aLabel.compareTo(bLabel);
+        });
+
       setState(() {
-        _friendUserIds = friendIds;
+        _friendUsers = sortedFriendUsers;
+        _selectedVerifierUserId = sortedFriendUsers.isNotEmpty
+            ? sortedFriendUsers.first.userId
+            : null;
         _loadingFriends = false;
-        _selectedVerificationMethod = _friendUserIds.isNotEmpty
+        _selectedVerificationMethod = _friendUsers.isNotEmpty
             ? CreateVerificationMethod.friend
             : CreateVerificationMethod.ai;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        _friendUserIds = [];
+        _friendUsers = [];
+        _selectedVerifierUserId = null;
         _loadingFriends = false;
         _selectedVerificationMethod = CreateVerificationMethod.ai;
       });
     }
   }
 
-  bool get _hasFriends => _friendUserIds.isNotEmpty;
+  bool get _hasFriends => _friendUsers.isNotEmpty;
 
   bool get _isFriendVerification =>
       _selectedVerificationMethod == CreateVerificationMethod.friend;
 
   bool get _isVerifierValid {
     if (!_isFriendVerification) return true;
-    return _friendUserIds.contains(_verifierController.text.trim());
-  }
-
-  List<String> get _matchingVerifierSuggestions {
-    final query = _verifierController.text.trim().toLowerCase();
-
-    if (query.isEmpty) {
-      return _friendUserIds.take(5).toList();
-    }
-
-    return _friendUserIds
-        .where((id) => id.toLowerCase().contains(query))
-        .take(5)
-        .toList();
+    return _selectedVerifierUserId != null &&
+        _friendUsers.any((friend) => friend.userId == _selectedVerifierUserId);
   }
 
   bool get _isFormValid {
@@ -161,7 +163,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     if (!_hasFriends) {
       return 'Add at least one friend before choosing friend verification.';
     }
-    if (_verifierController.text.trim().isEmpty) {
+    if ((_selectedVerifierUserId ?? '').isEmpty) {
       return 'Verifier is required.';
     }
     if (!_isVerifierValid) {
@@ -225,6 +227,19 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   }
 
   Future<void> _sealPact() async {
+    final pactProvider = context.read<PactProvider>();
+    if (pactProvider.hasPendingConsequence) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Complete and get verifier approval for your pending consequence before creating a new pact.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _attemptedSubmit = true;
     });
@@ -232,7 +247,6 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     if (!_isFormValid) return;
 
     final authProvider = context.read<AuthProvider>();
-    final pactProvider = context.read<PactProvider>();
     final userId = authProvider.firebaseUser?.uid;
 
     if (userId == null ||
@@ -245,9 +259,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
         ? VerificationType.friendVerify
         : VerificationType.aiVerify;
 
-    final verifierId = _isFriendVerification
-        ? _verifierController.text.trim()
-        : null;
+    final verifierId = _isFriendVerification ? _selectedVerifierUserId : null;
 
     final createdPactId = await pactProvider.createPact(
       userId: userId,
@@ -330,9 +342,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final background = colorScheme.surface;
     final onSurface = colorScheme.onSurface;
-    final borderColor = isDark
-        ? AppColors.darkBorder
-        : AppColors.darkBorder.withOpacity(0.45);
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return Scaffold(
       backgroundColor: background,
@@ -377,6 +387,25 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                     children: [
+                      if (pactProvider.hasPendingConsequence)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Text(
+                            'Pact creation is locked while a consequence is pending. Submit consequence evidence from your failed pact and wait for verifier approval.',
+                            style: TextStyle(
+                              color: onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       _SectionCard(
                         title: 'Task',
                         child: Column(
@@ -487,7 +516,12 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                                   setState(() {
                                     _selectedVerificationMethod = value;
                                     if (value == CreateVerificationMethod.ai) {
-                                      _verifierController.clear();
+                                      _selectedVerifierUserId = null;
+                                    } else if (_selectedVerifierUserId ==
+                                            null &&
+                                        _friendUsers.isNotEmpty) {
+                                      _selectedVerifierUserId =
+                                          _friendUsers.first.userId;
                                     }
                                   });
                                 },
@@ -536,47 +570,47 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              TextField(
-                                controller: _verifierController,
-                                style: TextStyle(color: onSurface),
-                                onChanged: (_) => setState(() {}),
+                              DropdownButtonFormField<String>(
+                                value: _isVerifierValid
+                                    ? _selectedVerifierUserId
+                                    : null,
+                                items: _friendUsers
+                                    .map(
+                                      (friend) => DropdownMenuItem<String>(
+                                        value: friend.userId,
+                                        child: _buildVerifierDropdownOption(
+                                          friend,
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                                selectedItemBuilder: (context) {
+                                  return _friendUsers
+                                      .map(
+                                        (friend) => Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: Text(
+                                            _selectedVerifierCompactLabel(
+                                              friend,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      )
+                                      .toList();
+                                },
+                                onChanged: (value) {
+                                  setState(() {
+                                    _selectedVerifierUserId = value;
+                                  });
+                                },
                                 decoration: const InputDecoration(
-                                  labelText: 'Verifier user ID',
-                                  suffixIcon: Icon(
-                                    Icons.person_search_outlined,
-                                  ),
+                                  labelText: 'Choose verifier username',
+                                  helperText:
+                                      'Only your accepted friends appear here.',
                                 ),
                               ),
-                              if (_matchingVerifierSuggestions.isNotEmpty)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 8),
-                                  decoration: BoxDecoration(
-                                    color: background.withOpacity(0.7),
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: Border.all(color: borderColor),
-                                  ),
-                                  child: Column(
-                                    children: _matchingVerifierSuggestions
-                                        .map(
-                                          (suggestedId) => ListTile(
-                                            dense: true,
-                                            title: Text(
-                                              suggestedId,
-                                              style: TextStyle(
-                                                color: onSurface,
-                                              ),
-                                            ),
-                                            onTap: () {
-                                              setState(() {
-                                                _verifierController.text =
-                                                    suggestedId;
-                                              });
-                                            },
-                                          ),
-                                        )
-                                        .toList(),
-                                  ),
-                                ),
                               if (_errorForVerifier() != null)
                                 _InlineError(message: _errorForVerifier()!),
                             ],
@@ -630,13 +664,17 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                             ),
                             const SizedBox(height: 10),
                             GestureDetector(
-                              onLongPress: pactProvider.isLoading
+                              onLongPress:
+                                  (pactProvider.isLoading ||
+                                      pactProvider.hasPendingConsequence)
                                   ? null
                                   : _sealPact,
                               child: Container(
                                 height: 78,
                                 decoration: BoxDecoration(
-                                  gradient: _isFormValid
+                                  gradient:
+                                      (_isFormValid &&
+                                          !pactProvider.hasPendingConsequence)
                                       ? const LinearGradient(
                                           colors: [
                                             AppColors.primary,
@@ -708,13 +746,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
       ),
       if (_isFriendVerification)
         MapEntry('Friend Proof', _friendProofLabel(_selectedFriendProofType)),
-      if (_isFriendVerification)
-        MapEntry(
-          'Verifier',
-          _verifierController.text.trim().isEmpty
-              ? 'Not set'
-              : _verifierController.text.trim(),
-        ),
+      if (_isFriendVerification) MapEntry('Verifier', _selectedVerifierLabel()),
       MapEntry(
         'Consequence',
         _selectedConsequence == null
@@ -791,6 +823,90 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
       ),
     );
   }
+
+  String _selectedVerifierLabel() {
+    if ((_selectedVerifierUserId ?? '').isEmpty) {
+      return 'Not set';
+    }
+
+    final matches = _friendUsers.where(
+      (friend) => friend.userId == _selectedVerifierUserId,
+    );
+
+    if (matches.isEmpty) {
+      return 'Not set';
+    }
+
+    return _userDisplayLabel(matches.first);
+  }
+
+  Widget _buildVerifierDropdownOption(UserModel user) {
+    final username = (user.username ?? '').trim();
+    final displayName = (user.displayName ?? '').trim();
+
+    return Row(
+      children: [
+        AppAvatar(imageUrl: user.profilePictureUrl, radius: 14),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                username.isNotEmpty ? '@$username' : 'Unknown user',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (displayName.isNotEmpty)
+                Text(
+                  displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondaryDark,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _selectedVerifierCompactLabel(UserModel user) {
+    final username = (user.username ?? '').trim();
+    if (username.isNotEmpty) {
+      return '@$username';
+    }
+
+    final displayName = (user.displayName ?? '').trim();
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    return 'Unknown user';
+  }
+
+  String _userDisplayLabel(UserModel user) {
+    final username = (user.username ?? '').trim();
+    final displayName = (user.displayName ?? '').trim();
+
+    if (username.isNotEmpty && displayName.isNotEmpty) {
+      return '@$username ($displayName)';
+    }
+
+    if (username.isNotEmpty) {
+      return '@$username';
+    }
+
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    return 'Unknown user';
+  }
 }
 
 class _SectionCard extends StatelessWidget {
@@ -803,11 +919,9 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
-    final borderColor = isDark
-        ? AppColors.darkBorder
-        : AppColors.darkBorder.withOpacity(0.45);
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final surfaceColor = colorScheme.surfaceVariant.withOpacity(
-      isDark ? 0.96 : 0.9,
+      isDark ? 0.96 : 0.98,
     );
     final onSurface = colorScheme.onSurface;
     return Container(

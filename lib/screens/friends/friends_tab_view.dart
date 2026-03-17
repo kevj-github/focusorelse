@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -7,13 +7,14 @@ import '../../models/friend_model.dart';
 import '../../models/pact_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/pact_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../utils/time_label.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/avatar.dart';
 import '../messages/message_screen.dart';
 import 'friend_profile_screen.dart';
+import 'verifier_pacts_screen.dart';
 
 class FriendsTabView extends StatefulWidget {
   const FriendsTabView({super.key});
@@ -136,7 +137,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
           content: Text(
             'Friend request sent to @${targetUser.username ?? ''}.',
           ),
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.success,
         ),
       );
     } catch (error) {
@@ -178,7 +179,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Friend request accepted.'),
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.success,
         ),
       );
     } catch (_) {
@@ -209,7 +210,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Friend request declined.'),
-          backgroundColor: AppColors.primary,
+          backgroundColor: AppColors.success,
         ),
       );
     } catch (_) {
@@ -244,7 +245,7 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       if (authProvider.isAuthenticated || authProvider.isLoading) {
         return Center(
           child: Text(
-            'Syncing your account…',
+            'Syncing your account...',
             style: TextStyle(color: secondaryText),
           ),
         );
@@ -555,12 +556,25 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    TextButton(
+                                    OutlinedButton(
                                       onPressed: isProcessing
                                           ? null
                                           : () => _declineIncomingRequest(
                                               request,
                                             ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.primary,
+                                        side: const BorderSide(
+                                          color: AppColors.primary,
+                                        ),
+                                        minimumSize: const Size(0, 34),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                       child: const Text('Decline'),
                                     ),
                                     const SizedBox(width: 6),
@@ -570,8 +584,11 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                                           : () =>
                                                 _acceptIncomingRequest(request),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppColors.success,
+                                        backgroundColor: AppColors.primary,
                                         foregroundColor: Colors.white,
+                                        textStyle: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                        ),
                                       ),
                                       child: Text(
                                         isProcessing ? '...' : 'Accept',
@@ -618,12 +635,45 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                             ),
                           );
                         } else {
-                          for (var i = 0; i < friends.length; i++) {
-                            final friend = friends[i];
-                            final status = _resolveFriendPactStatus(
-                              pactsByFriend[friend.userId] ??
-                                  const <PactModel>[],
-                            );
+                          final friendEntries = friends
+                              .map(
+                                (friend) => _FriendStatusEntry(
+                                  friend: friend,
+                                  status: _resolveFriendPactStatus(
+                                    pactsByFriend[friend.userId] ??
+                                        const <PactModel>[],
+                                  ),
+                                ),
+                              )
+                              .toList();
+
+                          friendEntries.sort((a, b) {
+                            final priorityCompare = _friendStatusPriority(
+                              a.status.type,
+                            ).compareTo(_friendStatusPriority(b.status.type));
+                            if (priorityCompare != 0) {
+                              return priorityCompare;
+                            }
+
+                            final nameA =
+                                (a.friend.displayName ??
+                                        a.friend.username ??
+                                        '')
+                                    .trim()
+                                    .toLowerCase();
+                            final nameB =
+                                (b.friend.displayName ??
+                                        b.friend.username ??
+                                        '')
+                                    .trim()
+                                    .toLowerCase();
+                            return nameA.compareTo(nameB);
+                          });
+
+                          for (var i = 0; i < friendEntries.length; i++) {
+                            final entry = friendEntries[i];
+                            final friend = entry.friend;
+                            final status = entry.status;
 
                             children.add(
                               FriendPactCard(
@@ -634,21 +684,14 @@ class _FriendsTabViewState extends State<FriendsTabView> {
                                     _openFriendProfile(friend: friend),
                                 onMessageTap: () =>
                                     _openMessageScreen(friend: friend),
-                                onReviewTap:
-                                    status.type ==
-                                            FriendPactStatusType
-                                                .evidenceSubmitted &&
-                                        status.pact != null
-                                    ? () => _openReviewSheet(
-                                        context,
-                                        pact: status.pact!,
-                                        friend: friend,
-                                      )
-                                    : null,
+                                onStatusTap: () => _openVerifierPacts(
+                                  friend: friend,
+                                  currentUserId: currentUser.userId,
+                                ),
                               ),
                             );
 
-                            if (i != friends.length - 1) {
+                            if (i != friendEntries.length - 1) {
                               children.add(const SizedBox(height: 12));
                             }
                           }
@@ -692,50 +735,91 @@ class _FriendsTabViewState extends State<FriendsTabView> {
   FriendPactStatus _resolveFriendPactStatus(List<PactModel> friendPacts) {
     final now = DateTime.now();
 
-    PactModel? submitted;
-    PactModel? waiting;
-    PactModel? failed;
+    PactModel? waitingApproval;
+    PactModel? waitingPactEvidence;
+    PactModel? waitingConsequenceEvidence;
+    PactModel? failedDue;
 
     for (final pact in friendPacts) {
-      if (pact.status == PactStatus.verificationPending) {
-        submitted ??= pact;
+      if (pact.status == PactStatus.verificationPending ||
+          (pact.status == PactStatus.failed &&
+              pact.consequenceStatus == ConsequenceStatus.pendingApproval)) {
+        waitingApproval ??= pact;
       } else if (pact.status == PactStatus.active) {
-        waiting ??= pact;
+        waitingPactEvidence ??= pact;
+      } else if (pact.status == PactStatus.failed &&
+          pact.deadline.isBefore(now) &&
+          (pact.consequenceStatus == ConsequenceStatus.pendingSubmission ||
+              pact.consequenceStatus == ConsequenceStatus.rejected ||
+              pact.consequenceStatus == ConsequenceStatus.none)) {
+        waitingConsequenceEvidence ??= pact;
       } else if (pact.status == PactStatus.failed &&
           pact.deadline.isBefore(now)) {
-        failed ??= pact;
+        failedDue ??= pact;
       }
     }
 
-    if (submitted != null) {
+    if (waitingApproval != null) {
       return FriendPactStatus(
-        type: FriendPactStatusType.evidenceSubmitted,
-        message: 'Evidence submitted',
-        pact: submitted,
+        type: FriendPactStatusType.waitingForApproval,
+        message: 'Waiting for your approval',
+        pact: waitingApproval,
       );
     }
 
-    if (waiting != null) {
-      final dueIn = waiting.deadline.difference(now);
+    if (waitingPactEvidence != null) {
       return FriendPactStatus(
-        type: FriendPactStatusType.waitingForEvidence,
-        message: 'Waiting for evidence · Due in ${_formatDuration(dueIn)}',
-        pact: waiting,
+        type: FriendPactStatusType.waitingForPactEvidence,
+        message: 'Waiting for completion evidence',
+        pact: waitingPactEvidence,
       );
     }
 
-    if (failed != null) {
-      final lateFor = now.difference(failed.deadline);
+    if (waitingConsequenceEvidence != null) {
       return FriendPactStatus(
-        type: FriendPactStatusType.failedSubmission,
-        message: 'Failed submission · Late for ${_formatDuration(lateFor)}',
-        pact: failed,
+        type: FriendPactStatusType.waitingForConsequenceEvidence,
+        message: 'Waiting for consequence evidence',
+        pact: waitingConsequenceEvidence,
+      );
+    }
+
+    if (failedDue != null) {
+      return FriendPactStatus(
+        type: FriendPactStatusType.noPact,
+        message: 'Currently no pact formed with you',
+        pact: failedDue,
       );
     }
 
     return const FriendPactStatus(
       type: FriendPactStatusType.noPact,
-      message: 'No current pact formed with you',
+      message: 'Currently no pact formed with you',
+    );
+  }
+
+  int _friendStatusPriority(FriendPactStatusType type) {
+    switch (type) {
+      case FriendPactStatusType.waitingForApproval:
+        return 0;
+      case FriendPactStatusType.waitingForPactEvidence:
+        return 1;
+      case FriendPactStatusType.waitingForConsequenceEvidence:
+        return 2;
+      case FriendPactStatusType.failedToComplete:
+      case FriendPactStatusType.noPact:
+        return 3;
+    }
+  }
+
+  Future<void> _openVerifierPacts({
+    required UserModel friend,
+    required String currentUserId,
+  }) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) =>
+            VerifierPactsScreen(currentUserId: currentUserId, friend: friend),
+      ),
     );
   }
 
@@ -757,6 +841,18 @@ class _FriendsTabViewState extends State<FriendsTabView> {
   Future<void> _openMessageScreen({required UserModel friend}) async {
     final currentUser = context.read<AuthProvider>().userModel;
     if (currentUser == null) {
+      return;
+    }
+
+    if (currentUser.hasPendingConsequence) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chat is locked until your pending consequence is approved.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
       return;
     }
 
@@ -791,113 +887,13 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       setState(() {});
     }
   }
-
-  Future<void> _openReviewSheet(
-    BuildContext context, {
-    required PactModel pact,
-    required UserModel friend,
-  }) async {
-    final pactProvider = context.read<PactProvider>();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
-    final secondary = isDark
-        ? AppColors.textSecondaryDark
-        : AppColors.textSecondaryLight;
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Review submission from ${friend.displayName ?? friend.username ?? 'Friend'}',
-                  style: TextStyle(
-                    color: onSurface,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(pact.taskDescription, style: TextStyle(color: onSurface)),
-                const SizedBox(height: 6),
-                Text(
-                  pact.evidenceUrl?.isNotEmpty == true
-                      ? 'Evidence is attached and ready for review.'
-                      : 'Evidence was submitted, but no media URL was found.',
-                  style: TextStyle(color: secondary),
-                ),
-                const SizedBox(height: 14),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: () async {
-                          final ok = await pactProvider.verifyPact(pact, false);
-                          if (!context.mounted) return;
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ok
-                                    ? 'Submission rejected.'
-                                    : 'Unable to reject submission right now.',
-                              ),
-                              backgroundColor: AppColors.primary,
-                            ),
-                          );
-                        },
-                        child: const Text('Reject'),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          final ok = await pactProvider.verifyPact(pact, true);
-                          if (!context.mounted) return;
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                ok
-                                    ? 'Submission approved.'
-                                    : 'Unable to approve submission right now.',
-                              ),
-                              backgroundColor: AppColors.primary,
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.success,
-                          foregroundColor: Colors.white,
-                        ),
-                        child: const Text('Approve'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 }
 
 enum FriendPactStatusType {
-  waitingForEvidence,
-  failedSubmission,
-  evidenceSubmitted,
+  waitingForPactEvidence,
+  waitingForConsequenceEvidence,
+  waitingForApproval,
+  failedToComplete,
   noPact,
 }
 
@@ -913,6 +909,13 @@ class FriendPactStatus {
   final PactModel? pact;
 }
 
+class _FriendStatusEntry {
+  const _FriendStatusEntry({required this.friend, required this.status});
+
+  final UserModel friend;
+  final FriendPactStatus status;
+}
+
 class FriendPactCard extends StatelessWidget {
   const FriendPactCard({
     super.key,
@@ -921,7 +924,7 @@ class FriendPactCard extends StatelessWidget {
     required this.status,
     this.onCardTap,
     this.onMessageTap,
-    this.onReviewTap,
+    this.onStatusTap,
   });
 
   static final FirestoreService _firestoreService = FirestoreService();
@@ -931,7 +934,7 @@ class FriendPactCard extends StatelessWidget {
   final FriendPactStatus status;
   final VoidCallback? onCardTap;
   final VoidCallback? onMessageTap;
-  final VoidCallback? onReviewTap;
+  final VoidCallback? onStatusTap;
 
   @override
   Widget build(BuildContext context) {
@@ -984,51 +987,77 @@ class FriendPactCard extends StatelessWidget {
                   ),
                   builder: (context, snapshot) {
                     final unreadCount = snapshot.data ?? 0;
-                    return Stack(
-                      clipBehavior: Clip.none,
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).scaffoldBackgroundColor,
-                            borderRadius: BorderRadius.circular(18),
-                          ),
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            onPressed: onMessageTap,
-                            icon: Icon(
-                              Icons.chat_bubble_outline,
-                              size: 18,
-                              color: secondary,
-                            ),
-                          ),
-                        ),
-                        if (unreadCount > 0)
-                          Positioned(
-                            right: -3,
-                            top: -3,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
                               decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(10),
+                                color: Theme.of(
+                                  context,
+                                ).scaffoldBackgroundColor,
+                                borderRadius: BorderRadius.circular(18),
                               ),
-                              constraints: const BoxConstraints(minWidth: 16),
-                              child: Text(
-                                unreadCount > 99 ? '99+' : '$unreadCount',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                onPressed: onMessageTap,
+                                icon: Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 18,
+                                  color: secondary,
                                 ),
                               ),
                             ),
+                            if (unreadCount > 0)
+                              Positioned(
+                                right: -3,
+                                top: -3,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                  ),
+                                  child: Text(
+                                    unreadCount > 99 ? '99+' : '$unreadCount',
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        StreamBuilder<DateTime?>(
+                          stream: _firestoreService.streamLastMessageAt(
+                            currentUserId: currentUserId,
+                            friendUserId: friend.userId,
                           ),
+                          builder: (context, timeSnapshot) {
+                            return Text(
+                              TimeLabel.formatRelativeShort(timeSnapshot.data),
+                              style: TextStyle(
+                                color: secondary,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            );
+                          },
+                        ),
                       ],
                     );
                   },
@@ -1055,7 +1084,7 @@ class FriendPactCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            FriendPactStatusLabel(status: status, onReviewTap: onReviewTap),
+            FriendPactStatusLabel(status: status, onTap: onStatusTap),
           ],
         ),
       ),
@@ -1106,56 +1135,43 @@ class _FriendStat extends StatelessWidget {
 }
 
 class FriendPactStatusLabel extends StatelessWidget {
-  const FriendPactStatusLabel({
-    super.key,
-    required this.status,
-    this.onReviewTap,
-  });
+  const FriendPactStatusLabel({super.key, required this.status, this.onTap});
 
   final FriendPactStatus status;
-  final VoidCallback? onReviewTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final visual = _statusVisual(status.type);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: visual.background,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: visual.border),
-      ),
-      child: Row(
-        children: [
-          Icon(visual.icon, size: 18, color: visual.foreground),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              status.message,
-              style: TextStyle(
-                color: visual.foreground,
-                fontWeight: FontWeight.w600,
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: visual.background,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: visual.border),
+        ),
+        child: Row(
+          children: [
+            Icon(visual.icon, size: 18, color: visual.foreground),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                status.message,
+                style: TextStyle(
+                  color: visual.foreground,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-          ),
-          if (status.type == FriendPactStatusType.evidenceSubmitted &&
-              onReviewTap != null)
-            TextButton(
-              onPressed: onReviewTap,
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).scaffoldBackgroundColor,
-                backgroundColor: isDark
-                    ? Colors.white
-                    : Theme.of(context).colorScheme.onSurface,
-                minimumSize: const Size(0, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-              child: const Text('Review'),
-            ),
-        ],
+            if (onTap != null)
+              Icon(Icons.chevron_right, size: 18, color: visual.foreground),
+          ],
+        ),
       ),
     );
   }
@@ -1173,26 +1189,33 @@ class FriendPactStatusLabel extends StatelessWidget {
     final baseBorder = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     switch (type) {
-      case FriendPactStatusType.waitingForEvidence:
+      case FriendPactStatusType.waitingForPactEvidence:
         return _StatusVisual(
           foreground: AppColors.warning,
           background: AppColors.warning.withValues(alpha: 0.15),
           border: AppColors.warning.withValues(alpha: 0.35),
           icon: Icons.schedule,
         );
-      case FriendPactStatusType.failedSubmission:
+      case FriendPactStatusType.waitingForConsequenceEvidence:
+        return _StatusVisual(
+          foreground: AppColors.primary,
+          background: AppColors.primary.withValues(alpha: 0.14),
+          border: AppColors.primary.withValues(alpha: 0.35),
+          icon: Icons.warning_amber_rounded,
+        );
+      case FriendPactStatusType.waitingForApproval:
+        return _StatusVisual(
+          foreground: Colors.blue,
+          background: Colors.blue.withValues(alpha: 0.12),
+          border: Colors.blue.withValues(alpha: 0.35),
+          icon: Icons.verified_outlined,
+        );
+      case FriendPactStatusType.failedToComplete:
         return _StatusVisual(
           foreground: AppColors.primary,
           background: AppColors.primary.withValues(alpha: 0.12),
           border: AppColors.primary.withValues(alpha: 0.35),
           icon: Icons.error_outline,
-        );
-      case FriendPactStatusType.evidenceSubmitted:
-        return _StatusVisual(
-          foreground: AppColors.success,
-          background: AppColors.success.withValues(alpha: 0.12),
-          border: AppColors.success.withValues(alpha: 0.35),
-          icon: Icons.check_circle_outline,
         );
       case FriendPactStatusType.noPact:
         return _StatusVisual(

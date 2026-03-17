@@ -6,6 +6,8 @@ class NotificationService {
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
+  Stream<String> get onTokenRefresh => _fcm.onTokenRefresh;
+
   // Initialize notifications
   Future<void> initialize() async {
     // Request permission (iOS)

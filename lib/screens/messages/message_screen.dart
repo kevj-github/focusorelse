@@ -4,6 +4,7 @@ import '../../models/chat_message_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../utils/time_label.dart';
 import '../../widgets/common/avatar.dart';
 
 class MessageScreen extends StatefulWidget {
@@ -51,6 +52,22 @@ class _MessageScreenState extends State<MessageScreen> {
   Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty || _sending) {
+      return;
+    }
+
+    final isLocked = await _firestoreService.userHasPendingConsequence(
+      widget.currentUserId,
+    );
+    if (isLocked) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chat is locked until your pending consequence is approved.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
       return;
     }
 
@@ -177,12 +194,29 @@ class _MessageScreenState extends State<MessageScreen> {
                                 ).colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          message.text,
-                          style: TextStyle(
-                            color: isMine ? Colors.white : onSurface,
-                            fontSize: 14,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: isMine
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              message.text,
+                              style: TextStyle(
+                                color: isMine ? Colors.white : onSurface,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              TimeLabel.formatRelativeShort(message.createdAt),
+                              style: TextStyle(
+                                color: (isMine ? Colors.white : onSurface)
+                                    .withValues(alpha: 0.7),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );

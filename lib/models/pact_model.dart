@@ -12,6 +12,14 @@ enum VerificationType {
 
 enum ConsequenceType { socialSharing, donationChallenge, funnyPenalty }
 
+enum ConsequenceStatus {
+  none,
+  pendingSubmission,
+  pendingApproval,
+  rejected,
+  approved,
+}
+
 class PactModel {
   final String pactId;
   final String userId;
@@ -29,6 +37,11 @@ class PactModel {
   final DateTime createdAt;
   final DateTime? completedAt;
   final List<PactReminder> reminders;
+  final ConsequenceStatus consequenceStatus;
+  final String? consequenceEvidenceUrl;
+  final bool? consequenceVerificationResult;
+  final DateTime? consequenceSubmittedAt;
+  final DateTime? consequenceReviewedAt;
 
   PactModel({
     required this.pactId,
@@ -46,6 +59,11 @@ class PactModel {
     required this.createdAt,
     this.completedAt,
     required this.reminders,
+    this.consequenceStatus = ConsequenceStatus.none,
+    this.consequenceEvidenceUrl,
+    this.consequenceVerificationResult,
+    this.consequenceSubmittedAt,
+    this.consequenceReviewedAt,
   });
 
   // Factory constructor from Firestore
@@ -79,6 +97,18 @@ class PactModel {
       completedAt: data['completedAt'] != null
           ? (data['completedAt'] as Timestamp).toDate()
           : null,
+      consequenceStatus: ConsequenceStatus.values.firstWhere(
+        (e) => e.name == (data['consequenceStatus'] ?? 'none'),
+        orElse: () => ConsequenceStatus.none,
+      ),
+      consequenceEvidenceUrl: data['consequenceEvidenceUrl'],
+      consequenceVerificationResult: data['consequenceVerificationResult'],
+      consequenceSubmittedAt: data['consequenceSubmittedAt'] != null
+          ? (data['consequenceSubmittedAt'] as Timestamp).toDate()
+          : null,
+      consequenceReviewedAt: data['consequenceReviewedAt'] != null
+          ? (data['consequenceReviewedAt'] as Timestamp).toDate()
+          : null,
       reminders:
           (data['reminders'] as List<dynamic>?)
               ?.map((r) => PactReminder.fromMap(r as Map<String, dynamic>))
@@ -106,12 +136,25 @@ class PactModel {
           ? Timestamp.fromDate(completedAt!)
           : null,
       'reminders': reminders.map((r) => r.toMap()).toList(),
+      'consequenceStatus': consequenceStatus.name,
+      'consequenceEvidenceUrl': consequenceEvidenceUrl,
+      'consequenceVerificationResult': consequenceVerificationResult,
+      'consequenceSubmittedAt': consequenceSubmittedAt != null
+          ? Timestamp.fromDate(consequenceSubmittedAt!)
+          : null,
+      'consequenceReviewedAt': consequenceReviewedAt != null
+          ? Timestamp.fromDate(consequenceReviewedAt!)
+          : null,
     };
   }
 
   // Helper to check if pact is overdue
   bool get isOverdue =>
       DateTime.now().isAfter(deadline) && status == PactStatus.active;
+
+  bool get hasPendingConsequence =>
+      status == PactStatus.failed &&
+      consequenceStatus != ConsequenceStatus.approved;
 
   // Helper to get time remaining
   Duration get timeRemaining => deadline.difference(DateTime.now());
@@ -169,6 +212,11 @@ class PactModel {
     bool? verificationResult,
     DateTime? completedAt,
     List<PactReminder>? reminders,
+    ConsequenceStatus? consequenceStatus,
+    String? consequenceEvidenceUrl,
+    bool? consequenceVerificationResult,
+    DateTime? consequenceSubmittedAt,
+    DateTime? consequenceReviewedAt,
   }) {
     return PactModel(
       pactId: pactId,
@@ -186,6 +234,15 @@ class PactModel {
       createdAt: createdAt,
       completedAt: completedAt ?? this.completedAt,
       reminders: reminders ?? this.reminders,
+      consequenceStatus: consequenceStatus ?? this.consequenceStatus,
+      consequenceEvidenceUrl:
+          consequenceEvidenceUrl ?? this.consequenceEvidenceUrl,
+      consequenceVerificationResult:
+          consequenceVerificationResult ?? this.consequenceVerificationResult,
+      consequenceSubmittedAt:
+          consequenceSubmittedAt ?? this.consequenceSubmittedAt,
+      consequenceReviewedAt:
+          consequenceReviewedAt ?? this.consequenceReviewedAt,
     );
   }
 }

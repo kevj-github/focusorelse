@@ -294,7 +294,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ScaffoldMessenger.of(this.context).showSnackBar(
                   const SnackBar(
                     content: Text('Profile updated successfully.'),
-                    backgroundColor: AppColors.primary,
+                    backgroundColor: AppColors.success,
                   ),
                 );
               });
@@ -1403,7 +1403,10 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                               builder: (context, likedSnapshot) {
                                 final isLiked = likedSnapshot.data ?? false;
                                 return IconButton(
-                                  onPressed: _isTogglingLike
+                                  onPressed:
+                                      widget.currentUser.hasPendingConsequence
+                                      ? null
+                                      : _isTogglingLike
                                       ? null
                                       : () async {
                                           if (currentPost.postId.isEmpty) {
@@ -1468,7 +1471,10 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                               },
                             ),
                             IconButton(
-                              onPressed: () => _commentFocusNode.requestFocus(),
+                              onPressed:
+                                  widget.currentUser.hasPendingConsequence
+                                  ? null
+                                  : () => _commentFocusNode.requestFocus(),
                               visualDensity: VisualDensity.compact,
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(
@@ -1615,44 +1621,54 @@ class _InstagramPostScreenState extends State<_InstagramPostScreen> {
                     ),
                   ),
                   padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                  child: Row(
-                    children: [
-                      AppAvatar(
-                        imageUrl: widget.currentUser.profilePictureUrl,
-                        radius: 14,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: _commentController,
-                          focusNode: _commentFocusNode,
-                          minLines: 1,
-                          maxLines: 3,
-                          style: TextStyle(color: _onSurfaceColor(context)),
-                          decoration: InputDecoration(
-                            hintText: 'Add a comment...',
-                            hintStyle: TextStyle(
-                              color: _secondaryTextColor(context),
+                  child: widget.currentUser.hasPendingConsequence
+                      ? Text(
+                          'Comments are locked until your pending consequence is approved.',
+                          style: TextStyle(
+                            color: _onSurfaceColor(context),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            AppAvatar(
+                              imageUrl: widget.currentUser.profilePictureUrl,
+                              radius: 14,
                             ),
-                            isDense: true,
-                            border: InputBorder.none,
-                          ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: _commentController,
+                                focusNode: _commentFocusNode,
+                                minLines: 1,
+                                maxLines: 3,
+                                style: TextStyle(
+                                  color: _onSurfaceColor(context),
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Add a comment...',
+                                  hintStyle: TextStyle(
+                                    color: _secondaryTextColor(context),
+                                  ),
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _isSubmittingComment
+                                  ? null
+                                  : () => _submitComment(currentPost.postId),
+                              child: Text(
+                                _isSubmittingComment ? 'Posting...' : 'Post',
+                                style: const TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      TextButton(
-                        onPressed: _isSubmittingComment
-                            ? null
-                            : () => _submitComment(currentPost.postId),
-                        child: Text(
-                          _isSubmittingComment ? 'Posting...' : 'Post',
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ],
             ),

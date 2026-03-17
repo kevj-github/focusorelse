@@ -227,6 +227,19 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   }
 
   Future<void> _sealPact() async {
+    final pactProvider = context.read<PactProvider>();
+    if (pactProvider.hasPendingConsequence) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Complete and get verifier approval for your pending consequence before creating a new pact.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _attemptedSubmit = true;
     });
@@ -234,7 +247,6 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     if (!_isFormValid) return;
 
     final authProvider = context.read<AuthProvider>();
-    final pactProvider = context.read<PactProvider>();
     final userId = authProvider.firebaseUser?.uid;
 
     if (userId == null ||
@@ -330,9 +342,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final background = colorScheme.surface;
     final onSurface = colorScheme.onSurface;
-    final borderColor = isDark
-        ? AppColors.darkBorder
-        : AppColors.darkBorder.withOpacity(0.45);
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
     return Scaffold(
       backgroundColor: background,
@@ -377,6 +387,25 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                     children: [
+                      if (pactProvider.hasPendingConsequence)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Text(
+                            'Pact creation is locked while a consequence is pending. Submit consequence evidence from your failed pact and wait for verifier approval.',
+                            style: TextStyle(
+                              color: onSurface,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       _SectionCard(
                         title: 'Task',
                         child: Column(
@@ -635,13 +664,17 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                             ),
                             const SizedBox(height: 10),
                             GestureDetector(
-                              onLongPress: pactProvider.isLoading
+                              onLongPress:
+                                  (pactProvider.isLoading ||
+                                      pactProvider.hasPendingConsequence)
                                   ? null
                                   : _sealPact,
                               child: Container(
                                 height: 78,
                                 decoration: BoxDecoration(
-                                  gradient: _isFormValid
+                                  gradient:
+                                      (_isFormValid &&
+                                          !pactProvider.hasPendingConsequence)
                                       ? const LinearGradient(
                                           colors: [
                                             AppColors.primary,
@@ -886,11 +919,9 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colorScheme = Theme.of(context).colorScheme;
-    final borderColor = isDark
-        ? AppColors.darkBorder
-        : AppColors.darkBorder.withOpacity(0.45);
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
     final surfaceColor = colorScheme.surfaceVariant.withOpacity(
-      isDark ? 0.96 : 0.9,
+      isDark ? 0.96 : 0.98,
     );
     final onSurface = colorScheme.onSurface;
     return Container(

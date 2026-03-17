@@ -117,7 +117,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Friend removed.'),
-            backgroundColor: AppColors.primary,
+            backgroundColor: AppColors.success,
           ),
         );
         Navigator.of(context).pop(true);

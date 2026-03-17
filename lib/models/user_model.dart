@@ -10,6 +10,7 @@ class UserModel {
   final UserStats stats;
   final List<String> friendIds;
   final UserSettings settings;
+  final bool hasPendingConsequence;
   final DateTime createdAt;
   final DateTime lastLoginAt;
 
@@ -23,6 +24,7 @@ class UserModel {
     required this.stats,
     required this.friendIds,
     required this.settings,
+    this.hasPendingConsequence = false,
     required this.createdAt,
     required this.lastLoginAt,
   });
@@ -40,6 +42,7 @@ class UserModel {
       stats: UserStats.fromMap(data['stats'] ?? {}),
       friendIds: List<String>.from(data['friendIds'] ?? []),
       settings: UserSettings.fromMap(data['settings'] ?? {}),
+      hasPendingConsequence: data['hasPendingConsequence'] == true,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       lastLoginAt: (data['lastLoginAt'] as Timestamp).toDate(),
     );
@@ -56,6 +59,7 @@ class UserModel {
       'stats': stats.toMap(),
       'friendIds': friendIds,
       'settings': settings.toMap(),
+      'hasPendingConsequence': hasPendingConsequence,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastLoginAt': Timestamp.fromDate(lastLoginAt),
     };
@@ -77,6 +81,7 @@ class UserModel {
       stats: UserStats.empty(),
       friendIds: [],
       settings: UserSettings.defaults(),
+      hasPendingConsequence: false,
       createdAt: DateTime.now(),
       lastLoginAt: DateTime.now(),
     );
@@ -91,6 +96,7 @@ class UserModel {
     UserStats? stats,
     List<String>? friendIds,
     UserSettings? settings,
+    bool? hasPendingConsequence,
     DateTime? lastLoginAt,
   }) {
     return UserModel(
@@ -103,6 +109,8 @@ class UserModel {
       stats: stats ?? this.stats,
       friendIds: friendIds ?? this.friendIds,
       settings: settings ?? this.settings,
+      hasPendingConsequence:
+          hasPendingConsequence ?? this.hasPendingConsequence,
       createdAt: createdAt,
       lastLoginAt: lastLoginAt ?? this.lastLoginAt,
     );

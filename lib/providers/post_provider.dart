@@ -66,6 +66,16 @@ class PostProvider with ChangeNotifier {
     required String imageUrl,
   }) async {
     try {
+      final locked = await _firestoreService.userHasPendingConsequence(
+        authorId,
+      );
+      if (locked) {
+        _errorMessage =
+            'Posting is locked until your pending consequence is approved.';
+        notifyListeners();
+        return false;
+      }
+
       _isLoading = true;
       _errorMessage = null;
       notifyListeners();
@@ -119,6 +129,13 @@ class PostProvider with ChangeNotifier {
     required String userId,
   }) async {
     try {
+      final locked = await _firestoreService.userHasPendingConsequence(userId);
+      if (locked) {
+        _errorMessage =
+            'Likes are locked until your pending consequence is approved.';
+        notifyListeners();
+        return false;
+      }
       await _firestoreService.togglePostLike(postId: postId, userId: userId);
       return true;
     } catch (error) {
@@ -137,6 +154,15 @@ class PostProvider with ChangeNotifier {
     required String text,
   }) async {
     try {
+      final locked = await _firestoreService.userHasPendingConsequence(
+        authorId,
+      );
+      if (locked) {
+        _errorMessage =
+            'Comments are locked until your pending consequence is approved.';
+        notifyListeners();
+        return false;
+      }
       await _firestoreService.addPostComment(
         postId: postId,
         authorId: authorId,

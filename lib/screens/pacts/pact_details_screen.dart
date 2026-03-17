@@ -453,6 +453,20 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
         !hasLocalPreview &&
         existingEvidenceUrl != null &&
         existingEvidenceUrl.isNotEmpty;
+    final showConsequenceNetworkPreview =
+        !hasLocalPreview &&
+        pact.consequenceEvidenceUrl != null &&
+        pact.consequenceEvidenceUrl!.isNotEmpty;
+    final isConsequenceOwnerSubmission =
+        isOwner &&
+        pact.status == PactStatus.failed &&
+        (pact.consequenceStatus == ConsequenceStatus.pendingSubmission ||
+            pact.consequenceStatus == ConsequenceStatus.rejected ||
+            pact.consequenceStatus == ConsequenceStatus.none);
+    final isConsequenceVerifierReview =
+        isVerifier &&
+        pact.status == PactStatus.failed &&
+        pact.consequenceStatus == ConsequenceStatus.pendingApproval;
 
     final notesCard = _buildSubmissionNotesCard(
       editable: isOwner && pact.status == PactStatus.active && !pact.isOverdue,
@@ -463,6 +477,14 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
         : (showNetworkPreview
               ? _buildNetworkEvidencePreview(existingEvidenceUrl)
               : null);
+    final consequenceEvidencePreview = hasLocalPreview
+        ? _buildLocalEvidencePreview()
+        : (showConsequenceNetworkPreview
+              ? _buildNetworkEvidencePreview(pact.consequenceEvidenceUrl)
+              : null);
+    final ownerEvidencePreview = isConsequenceOwnerSubmission
+        ? (hasLocalPreview ? _buildLocalEvidencePreview() : null)
+        : evidencePreview;
 
     if (pact.status == PactStatus.verificationPending && isVerifier) {
       return Column(
@@ -492,6 +514,7 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
               minimumSize: const Size.fromHeight(46),
               foregroundColor: AppColors.primary,
               side: const BorderSide(color: AppColors.primary),
+              textStyle: const TextStyle(fontWeight: FontWeight.w500),
             ),
             label: const Text('Reject Evidence'),
           ),
@@ -503,8 +526,10 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
             icon: const Icon(Icons.check),
             style: ElevatedButton.styleFrom(
               minimumSize: const Size.fromHeight(48),
-              backgroundColor: AppColors.success,
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
+              elevation: 3,
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
             ),
             label: const Text('Approve & Complete'),
           ),
@@ -512,14 +537,66 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
       );
     }
 
-    if (isOwner && pact.status == PactStatus.active && !pact.isOverdue) {
+    if (isConsequenceVerifierReview) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          notesCard,
+          if (consequenceEvidencePreview != null) ...[
+            const SizedBox(height: 10),
+            consequenceEvidencePreview,
+          ],
+          const SizedBox(height: 10),
+          const Text(
+            'Consequence Review Required',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: pactProvider.isLoading
+                ? null
+                : () => _verifyConsequence(pact, approved: false),
+            icon: const Icon(Icons.close),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(46),
+              foregroundColor: AppColors.primary,
+              side: const BorderSide(color: AppColors.primary),
+              textStyle: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+            label: const Text('Reject Consequence Evidence'),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton.icon(
+            onPressed: pactProvider.isLoading
+                ? null
+                : () => _verifyConsequence(pact, approved: true),
+            icon: const Icon(Icons.check),
+            style: ElevatedButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              elevation: 3,
+              textStyle: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            label: const Text('Approve Consequence Evidence'),
+          ),
+        ],
+      );
+    }
+
+    if ((isOwner && pact.status == PactStatus.active && !pact.isOverdue) ||
+        isConsequenceOwnerSubmission) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           notesCard,
           const SizedBox(height: 10),
-          if (evidencePreview != null) ...[
-            evidencePreview,
+          if (ownerEvidencePreview != null) ...[
+            ownerEvidencePreview,
             const SizedBox(height: 10),
           ],
           Row(
@@ -574,8 +651,23 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            label: const Text('Confirm Submission'),
+            label: Text(
+              isConsequenceOwnerSubmission
+                  ? 'Submit Consequence Evidence'
+                  : 'Confirm Submission',
+            ),
           ),
+          if (isConsequenceOwnerSubmission)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text(
+                'Consequence lock remains active until verifier approval.',
+                style: TextStyle(
+                  color: AppColors.textSecondaryDark,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
         ],
       );
     }
@@ -609,6 +701,9 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
   }
 
   Widget _buildSubmissionNotesCard({required bool editable}) {
+    final fieldBackground = editable
+        ? AppColors.darkBackground.withValues(alpha: 0.4)
+        : AppColors.darkBackground.withValues(alpha: 0.9);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -628,9 +723,34 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
             controller: _submissionNoteController,
             enabled: editable,
             maxLines: 3,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            style: TextStyle(
+              color: editable
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.55),
+            ),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: fieldBackground,
               hintText: 'Add notes about your submission or completion...',
+              hintStyle: TextStyle(
+                color: editable
+                    ? AppColors.textSecondaryDark
+                    : AppColors.textSecondaryDark.withValues(alpha: 0.6),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: editable
+                      ? AppColors.darkBorder
+                      : AppColors.darkBorder.withValues(alpha: 0.55),
+                ),
+              ),
+              disabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(
+                  color: AppColors.darkBorder.withValues(alpha: 0.45),
+                ),
+              ),
               isDense: true,
             ),
           ),
@@ -1061,7 +1181,8 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
     });
 
     try {
-      final success = await context.read<PactProvider>().submitEvidence(
+      final pactProvider = context.read<PactProvider>();
+      final success = await pactProvider.submitEvidence(
         pact: pact,
         photoFile: _selectedPhotoEvidence,
         videoFile: _selectedVideoEvidence,
@@ -1074,7 +1195,8 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
           content: Text(
             success
                 ? 'Evidence submitted successfully.'
-                : 'Could not submit evidence. Please try again.',
+                : (pactProvider.errorMessage ??
+                      'Could not submit evidence. Please try again.'),
           ),
           backgroundColor: success ? AppColors.success : AppColors.primary,
         ),
@@ -1111,6 +1233,33 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
                     ? 'Pact approved and completed.'
                     : 'Pact rejected.'
               : 'Unable to update verification right now.',
+        ),
+        backgroundColor: success
+            ? (approved ? AppColors.success : AppColors.primary)
+            : AppColors.primary,
+      ),
+    );
+  }
+
+  Future<void> _verifyConsequence(
+    PactModel pact, {
+    required bool approved,
+  }) async {
+    final success = await context.read<PactProvider>().verifyConsequence(
+      pact,
+      approved,
+    );
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success
+              ? approved
+                    ? 'Consequence evidence approved.'
+                    : 'Consequence evidence rejected. User must resubmit.'
+              : 'Unable to update consequence review right now.',
         ),
         backgroundColor: success
             ? (approved ? AppColors.success : AppColors.primary)
@@ -1200,6 +1349,15 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
     }
 
     if (pact.status == PactStatus.failed || pact.isOverdue) {
+      if (pact.consequenceStatus == ConsequenceStatus.pendingApproval) {
+        return 'This pact failed and consequence evidence is waiting for verifier approval.';
+      }
+      if (pact.consequenceStatus == ConsequenceStatus.rejected) {
+        return 'Consequence evidence was rejected. Resubmit to clear your lock.';
+      }
+      if (pact.consequenceStatus == ConsequenceStatus.approved) {
+        return 'This pact failed, and the required consequence has been completed and approved.';
+      }
       return 'This pact failed. Review the consequence details and create the next pact quickly to keep momentum.';
     }
 

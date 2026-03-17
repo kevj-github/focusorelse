@@ -55,6 +55,22 @@ class _MessageScreenState extends State<MessageScreen> {
       return;
     }
 
+    final isLocked = await _firestoreService.userHasPendingConsequence(
+      widget.currentUserId,
+    );
+    if (isLocked) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Chat is locked until your pending consequence is approved.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _sending = true;
     });

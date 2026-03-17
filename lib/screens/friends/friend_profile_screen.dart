@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../models/pact_model.dart';
+import '../../models/post_comment_model.dart';
 import '../../models/post_model.dart';
 import '../../models/user_model.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/post_provider.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/avatar.dart';
 import '../messages/message_screen.dart';
@@ -30,6 +36,29 @@ class FriendProfileScreen extends StatefulWidget {
 class _FriendProfileScreenState extends State<FriendProfileScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+
+  void _openFriendPostDetails(PostModel post) {
+    final currentUser = context.read<AuthProvider>().userModel;
+    if (currentUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to load your user session.'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _FriendPostViewerScreen(
+          friend: widget.friend,
+          post: post,
+          currentUser: currentUser,
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -139,7 +168,12 @@ class _FriendProfileScreenState extends State<FriendProfileScreen>
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.lg,
+                AppSpacing.xl,
+                AppSpacing.sm,
+              ),
               child: _FriendProfileHeaderCard(
                 friend: widget.friend,
                 onMessage: openMessage,
@@ -147,16 +181,23 @@ class _FriendProfileScreenState extends State<FriendProfileScreen>
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                0,
+                AppSpacing.xl,
+                AppSpacing.sm,
+              ),
               child: TabBar(
                 controller: _tabController,
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 labelColor: onSurface,
                 unselectedLabelColor: secondary,
+                labelStyle: AppTypography.labelLarge,
+                unselectedLabelStyle: AppTypography.labelLarge,
                 indicator: const UnderlineTabIndicator(
                   borderSide: BorderSide(color: AppColors.primary, width: 3),
-                  insets: EdgeInsets.symmetric(horizontal: 28),
+                  insets: EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
                 ),
                 tabs: const [
                   Tab(text: 'Posts'),
@@ -178,13 +219,20 @@ class _FriendProfileScreenState extends State<FriendProfileScreen>
                         return Center(
                           child: Text(
                             'No posts yet.',
-                            style: TextStyle(color: secondary),
+                            style: AppTypography.bodyMedium.copyWith(
+                              color: secondary,
+                            ),
                           ),
                         );
                       }
 
                       return GridView.builder(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                          AppSpacing.md,
+                          AppSpacing.md,
+                        ),
                         itemCount: posts.length,
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
@@ -194,9 +242,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen>
                             ),
                         itemBuilder: (context, index) {
                           final post = posts[index];
-                          return Image.network(
-                            post.imageUrl,
-                            fit: BoxFit.cover,
+                          return InkWell(
+                            onTap: () => _openFriendPostDetails(post),
+                            child: _FriendPostGridTile(post: post),
                           );
                         },
                       );
@@ -225,6 +273,570 @@ class _FriendProfileScreenState extends State<FriendProfileScreen>
   }
 }
 
+class _FriendPostGridTile extends StatelessWidget {
+  const _FriendPostGridTile({required this.post});
+
+  final PostModel post;
+
+  @override
+  Widget build(BuildContext context) {
+    return Hero(
+      tag: 'friend-post-${post.postId.isEmpty ? post.imageUrl : post.postId}',
+      child: ColoredBox(
+        color: Colors.black,
+        child: Image.network(
+          post.imageUrl,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => Center(
+            child: Icon(
+              Icons.image_not_supported_outlined,
+              color: _friendSecondaryTextColor(context),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendPostViewerScreen extends StatefulWidget {
+  const _FriendPostViewerScreen({
+    required this.friend,
+    required this.post,
+    required this.currentUser,
+  });
+
+  final UserModel friend;
+  final PostModel post;
+
+  final UserModel currentUser;
+
+  @override
+  State<_FriendPostViewerScreen> createState() =>
+      _FriendPostViewerScreenState();
+}
+
+class _FriendPostViewerScreenState extends State<_FriendPostViewerScreen> {
+  final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+  bool _isSubmittingComment = false;
+  bool _isTogglingLike = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _commentFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final postProvider = context.read<PostProvider>();
+
+    return StreamBuilder<PostModel?>(
+      stream: postProvider.streamPost(widget.post.postId),
+      initialData: widget.post,
+      builder: (context, postSnapshot) {
+        final currentPost = postSnapshot.data ?? widget.post;
+        final username = _resolvedUsername(currentPost);
+        final avatarUrl = _resolvedAvatarUrl(currentPost);
+
+        return Scaffold(
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          appBar: AppBar(
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
+            elevation: 0,
+            titleSpacing: 0,
+            title: Text(
+              username,
+              style: AppTypography.bodyLarge.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            actions: const [
+              Padding(
+                padding: EdgeInsets.only(right: AppSpacing.sm),
+                child: Icon(Icons.more_horiz),
+              ),
+            ],
+          ),
+          body: SafeArea(
+            top: false,
+            child: Column(
+              children: [
+                Expanded(
+                  child: ListView(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
+                        ),
+                        child: Row(
+                          children: [
+                            AppAvatar(imageUrl: avatarUrl, radius: 16),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: Text(
+                                username,
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              Icons.more_horiz,
+                              color: _friendSecondaryTextColor(context),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Hero(
+                        tag:
+                            'friend-post-${currentPost.postId.isEmpty ? currentPost.imageUrl : currentPost.postId}',
+                        child: AspectRatio(
+                          aspectRatio: 1,
+                          child: Image.network(
+                            currentPost.imageUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHighest,
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: _friendSecondaryTextColor(context),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                          AppSpacing.md,
+                          0,
+                        ),
+                        child: Row(
+                          children: [
+                            StreamBuilder<bool>(
+                              stream: postProvider.streamIsPostLiked(
+                                postId: currentPost.postId,
+                                userId: widget.currentUser.userId,
+                              ),
+                              initialData: false,
+                              builder: (context, likedSnapshot) {
+                                final isLiked = likedSnapshot.data ?? false;
+                                return IconButton(
+                                  onPressed:
+                                      widget.currentUser.hasPendingConsequence
+                                      ? null
+                                      : _isTogglingLike
+                                      ? null
+                                      : () async {
+                                          if (currentPost.postId.isEmpty) {
+                                            return;
+                                          }
+
+                                          postProvider.clearError();
+                                          setState(() {
+                                            _isTogglingLike = true;
+                                          });
+
+                                          final success = await postProvider
+                                              .togglePostLike(
+                                                postId: currentPost.postId,
+                                                userId:
+                                                    widget.currentUser.userId,
+                                              );
+
+                                          if (!mounted) {
+                                            return;
+                                          }
+
+                                          setState(() {
+                                            _isTogglingLike = false;
+                                          });
+
+                                          if (success) {
+                                            return;
+                                          }
+
+                                          ScaffoldMessenger.of(
+                                            this.context,
+                                          ).showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                postProvider.errorMessage ??
+                                                    'Failed to update like. Please try again.',
+                                              ),
+                                              backgroundColor:
+                                                  AppColors.primary,
+                                            ),
+                                          );
+                                        },
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minHeight: 44,
+                                    minWidth: 44,
+                                  ),
+                                  icon: Icon(
+                                    isLiked
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: isLiked
+                                        ? AppColors.primary
+                                        : (_isTogglingLike
+                                              ? _friendSecondaryTextColor(
+                                                  context,
+                                                )
+                                              : Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface),
+                                    size: 26,
+                                  ),
+                                );
+                              },
+                            ),
+                            IconButton(
+                              onPressed:
+                                  widget.currentUser.hasPendingConsequence
+                                  ? null
+                                  : () => _commentFocusNode.requestFocus(),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minHeight: 44,
+                                minWidth: 44,
+                              ),
+                              icon: Icon(
+                                Icons.mode_comment_outlined,
+                                color: Theme.of(context).colorScheme.onSurface,
+                                size: 24,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.xs,
+                          AppSpacing.md,
+                          0,
+                        ),
+                        child: Text(
+                          '${currentPost.likeCount} likes',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.xs,
+                          AppSpacing.md,
+                          0,
+                        ),
+                        child: RichText(
+                          text: TextSpan(
+                            style: AppTypography.bodySmall.copyWith(
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: '$username ',
+                                style: AppTypography.bodySmall.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              TextSpan(text: currentPost.caption),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AppSpacing.md,
+                          AppSpacing.sm,
+                          AppSpacing.md,
+                          0,
+                        ),
+                        child: Text(
+                          _formatPostAge(currentPost.createdAt),
+                          style: AppTypography.labelSmall.copyWith(
+                            color: _friendSecondaryTextColor(context),
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Divider(
+                        color: _friendBorderColor(context),
+                        height: 1,
+                        thickness: 1,
+                      ),
+                      StreamBuilder<List<PostCommentModel>>(
+                        stream: postProvider.streamPostComments(
+                          currentPost.postId,
+                        ),
+                        builder: (context, commentSnapshot) {
+                          final comments = commentSnapshot.data ?? const [];
+
+                          if (comments.isEmpty) {
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(
+                                AppSpacing.md,
+                                AppSpacing.md,
+                                AppSpacing.md,
+                                AppSpacing.xs,
+                              ),
+                              child: Text(
+                                'No comments yet. Start the conversation.',
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: _friendSecondaryTextColor(context),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: comments.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: AppSpacing.sm),
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              AppSpacing.md,
+                              AppSpacing.sm,
+                            ),
+                            itemBuilder: (context, index) {
+                              final comment = comments[index];
+                              final commentUsername =
+                                  (comment.authorUsername?.trim().isNotEmpty ??
+                                      false)
+                                  ? comment.authorUsername!.trim()
+                                  : comment.authorDisplayName
+                                        .trim()
+                                        .toLowerCase()
+                                        .replaceAll(' ', '_');
+
+                              return Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  AppAvatar(
+                                    imageUrl: comment.authorProfilePictureUrl,
+                                    radius: 14,
+                                  ),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: AppTypography.bodySmall.copyWith(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurface,
+                                        ),
+                                        children: [
+                                          TextSpan(
+                                            text: '$commentUsername ',
+                                            style: AppTypography.bodySmall
+                                                .copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                          TextSpan(text: comment.text),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
+                  ),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.surfaceContainerHighest,
+                    border: Border(
+                      top: BorderSide(color: _friendBorderColor(context)),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                    AppSpacing.md,
+                    AppSpacing.sm,
+                  ),
+                  child: widget.currentUser.hasPendingConsequence
+                      ? Text(
+                          'Comments are locked until your pending consequence is approved.',
+                          style: AppTypography.bodySmall.copyWith(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : Row(
+                          children: [
+                            AppAvatar(
+                              imageUrl: widget.currentUser.profilePictureUrl,
+                              radius: 14,
+                            ),
+                            const SizedBox(width: AppSpacing.sm),
+                            Expanded(
+                              child: TextField(
+                                controller: _commentController,
+                                focusNode: _commentFocusNode,
+                                minLines: 1,
+                                maxLines: 3,
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: 'Add a comment...',
+                                  hintStyle: AppTypography.bodyMedium.copyWith(
+                                    color: _friendSecondaryTextColor(context),
+                                  ),
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: _isSubmittingComment
+                                  ? null
+                                  : () => _submitComment(currentPost.postId),
+                              child: Text(
+                                _isSubmittingComment ? 'Posting...' : 'Post',
+                                style: AppTypography.bodyMedium.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  String _resolvedUsername(PostModel currentPost) {
+    return (currentPost.authorUsername?.trim().isNotEmpty ?? false)
+        ? currentPost.authorUsername!.trim()
+        : currentPost.authorDisplayName.trim().toLowerCase().replaceAll(
+            ' ',
+            '_',
+          );
+  }
+
+  String? _resolvedAvatarUrl(PostModel currentPost) {
+    return currentPost.authorProfilePictureUrl;
+  }
+
+  Future<void> _submitComment(String postId) async {
+    final postProvider = context.read<PostProvider>();
+    final text = _commentController.text.trim();
+    if (text.isEmpty) {
+      return;
+    }
+
+    postProvider.clearError();
+
+    setState(() {
+      _isSubmittingComment = true;
+    });
+
+    final success = await postProvider.addPostComment(
+      postId: postId,
+      authorId: widget.currentUser.userId,
+      authorDisplayName:
+          widget.currentUser.displayName ??
+          widget.currentUser.username ??
+          'Focus User',
+      authorUsername: widget.currentUser.username,
+      authorProfilePictureUrl: widget.currentUser.profilePictureUrl,
+      text: text,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmittingComment = false;
+    });
+
+    if (success) {
+      _commentController.clear();
+      _commentFocusNode.unfocus();
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          postProvider.errorMessage ??
+              'Failed to post comment. Please try again.',
+        ),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
+  String _formatPostAge(DateTime createdAt) {
+    final now = DateTime.now();
+    final difference = now.difference(createdAt);
+
+    if (difference.inMinutes < 1) {
+      return 'JUST NOW';
+    }
+    if (difference.inHours < 1) {
+      return '${difference.inMinutes}M AGO';
+    }
+    if (difference.inDays < 1) {
+      return '${difference.inHours}H AGO';
+    }
+    if (difference.inDays < 7) {
+      return '${difference.inDays}D AGO';
+    }
+    final weeks = (difference.inDays / 7).floor();
+    if (weeks < 5) {
+      return '${weeks}W AGO';
+    }
+    final months = (difference.inDays / 30).floor();
+    if (months < 12) {
+      return '${months}MO AGO';
+    }
+    final years = (difference.inDays / 365).floor();
+    return '${years}Y AGO';
+  }
+}
+
 class _FriendProfileHeaderCard extends StatelessWidget {
   const _FriendProfileHeaderCard({
     required this.friend,
@@ -247,11 +859,16 @@ class _FriendProfileHeaderCard extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       child: AppCard(
-        padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.md,
+          AppSpacing.sm,
+          AppSpacing.md,
+          AppSpacing.sm,
+        ),
         child: Row(
           children: [
             AppAvatar(imageUrl: friend.profilePictureUrl, radius: 24),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,34 +878,35 @@ class _FriendProfileHeaderCard extends StatelessWidget {
                     friend.displayName ?? friend.username ?? 'Friend',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: AppTypography.titleLarge.copyWith(
                       color: onSurface,
-                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   if ((friend.username ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AppSpacing.xs),
                     Text(
                       '@${friend.username}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: secondary, fontSize: 12),
+                      style: AppTypography.labelSmall.copyWith(
+                        color: secondary,
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 3),
+                  const SizedBox(height: AppSpacing.xs),
                   Text(
                     (friend.bio ?? '').trim().isEmpty
                         ? 'No bio yet.'
                         : friend.bio!.trim(),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(color: secondary, fontSize: 12),
+                    style: AppTypography.labelSmall.copyWith(color: secondary),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppSpacing.sm),
             PopupMenuButton<String>(
               onSelected: (value) {
                 if (value == 'message') {
@@ -308,8 +926,8 @@ class _FriendProfileHeaderCard extends StatelessWidget {
                 ),
                 foregroundColor: onSurface,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 8,
+                  horizontal: AppSpacing.sm,
+                  vertical: AppSpacing.sm,
                 ),
                 minimumSize: const Size(0, 34),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -359,6 +977,8 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
     final completedPacts = widget.pacts
         .where((p) => p.status == PactStatus.completed)
         .toList();
+    final currentStreak = _currentCompletionStreak(widget.pacts);
+    final longestStreak = _longestCompletionStreak(widget.pacts);
 
     final successRate = widget.pacts.isEmpty
         ? 0.0
@@ -367,7 +987,12 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
     final avgLeadHours = _averageCompletionLeadHours(completedPacts);
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.md,
+        AppSpacing.xl,
+        AppSpacing.xl,
+      ),
       children: [
         Row(
           children: [
@@ -375,12 +1000,12 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
               child: AppCard(
                 child: _FriendMetricBlock(
                   title: 'Streak',
-                  value: '${widget.user.stats.currentStreak} day',
+                  value: '$currentStreak day',
                   subtitle: 'Current',
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: AppCard(
                 child: _FriendMetricBlock(
@@ -399,12 +1024,12 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
               child: AppCard(
                 child: _FriendMetricBlock(
                   title: 'Longest Streak',
-                  value: '${widget.user.stats.longestStreak} day',
+                  value: '$longestStreak day',
                   subtitle: 'Best',
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: AppCard(
                 child: _FriendMetricBlock(
@@ -416,7 +1041,7 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: AppSpacing.sm),
         AppCard(
           child: _FriendMetricBlock(
             title: 'Avg Completion Lead Time',
@@ -424,7 +1049,7 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
             subtitle: 'Before deadline',
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.md),
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -574,6 +1199,55 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
 
     return (totalMinutes / leadDurations.length) / 60;
   }
+
+  int _currentCompletionStreak(List<PactModel> pacts) {
+    final finished =
+        pacts
+            .where(
+              (p) =>
+                  p.status == PactStatus.completed ||
+                  p.status == PactStatus.failed,
+            )
+            .toList()
+          ..sort((a, b) => b.deadline.compareTo(a.deadline));
+
+    var streak = 0;
+    for (final pact in finished) {
+      if (pact.status == PactStatus.completed) {
+        streak += 1;
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  int _longestCompletionStreak(List<PactModel> pacts) {
+    final finished =
+        pacts
+            .where(
+              (p) =>
+                  p.status == PactStatus.completed ||
+                  p.status == PactStatus.failed,
+            )
+            .toList()
+          ..sort((a, b) => a.deadline.compareTo(b.deadline));
+
+    var longest = 0;
+    var current = 0;
+    for (final pact in finished) {
+      if (pact.status == PactStatus.completed) {
+        current += 1;
+        if (current > longest) {
+          longest = current;
+        }
+      } else {
+        current = 0;
+      }
+    }
+
+    return longest;
+  }
 }
 
 class _FriendMetricBlock extends StatelessWidget {
@@ -636,21 +1310,23 @@ class _FriendChoiceChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary
               : Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
           border: Border.all(color: _friendBorderColor(context)),
         ),
         child: Text(
           label,
-          style: TextStyle(
+          style: AppTypography.labelSmall.copyWith(
             color: selected ? Colors.white : _friendSecondaryTextColor(context),
-            fontSize: 12,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -674,12 +1350,11 @@ class _FriendLegendDot extends StatelessWidget {
           height: 10,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: AppSpacing.xs),
         Text(
           label,
-          style: TextStyle(
+          style: AppTypography.labelSmall.copyWith(
             color: _friendSecondaryTextColor(context),
-            fontSize: 12,
           ),
         ),
       ],

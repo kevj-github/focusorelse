@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_input.dart';
 
@@ -142,22 +144,27 @@ class _SignupScreenState extends State<SignupScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + keyboardInset),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.xl,
+            AppSpacing.xl,
+            AppSpacing.xl,
+            AppSpacing.xl + keyboardInset,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 8),
+              const SizedBox(height: AppSpacing.sm),
               Text(
                 'Sign up to start your first pact.',
-                style: TextStyle(color: secondary),
+                style: AppTypography.bodyLarge.copyWith(color: secondary),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               AppInput(
                 controller: _displayNameController,
                 label: 'Display name',
                 icon: Icons.person_outline,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               AppInput(
                 controller: _usernameController,
                 label: 'Username',
@@ -168,56 +175,60 @@ class _SignupScreenState extends State<SignupScreen> {
                   _usernameError != null ||
                   _isUsernameAvailable == true)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8, left: 4),
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.sm,
+                    left: AppSpacing.xs,
+                  ),
                   child: Text(
                     _checkingUsername
                         ? 'Checking username...'
                         : _usernameError ?? 'Username is available.',
-                    style: TextStyle(
+                    style: AppTypography.bodySmall.copyWith(
                       color: _checkingUsername
                           ? secondary
                           : (_usernameError != null
                                 ? AppColors.primary
                                 : AppColors.accent),
-                      fontSize: 12,
                     ),
                   ),
                 ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               AppInput(
                 controller: _emailController,
                 label: 'Email',
                 icon: Icons.email_outlined,
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: AppSpacing.md),
               AppInput(
                 controller: _passwordController,
                 label: 'Password',
                 icon: Icons.lock_outline,
                 obscureText: true,
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: AppSpacing.xl),
               AppButton(
                 label: 'Create account',
                 isLoading: authProvider.isLoading,
                 onPressed: () => _register(authProvider),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: AppSpacing.sm),
               TextButton(
                 onPressed: authProvider.isLoading
                     ? null
                     : () => Navigator.pop(context),
                 child: Text(
                   'Already have an account? Sign in',
-                  style: TextStyle(color: secondary),
+                  style: AppTypography.bodyMedium.copyWith(color: secondary),
                 ),
               ),
               if (authProvider.errorMessage != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   authProvider.errorMessage!,
-                  style: const TextStyle(color: AppColors.primary),
+                  style: AppTypography.bodySmall.copyWith(
+                    color: AppColors.primary,
+                  ),
                 ),
               ],
             ],

@@ -5,6 +5,9 @@ import '../../models/pact_model.dart';
 import '../../models/user_model.dart';
 import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
+import '../../widgets/common/app_card.dart';
 import '../pacts/pact_details_screen.dart';
 
 class VerifierPactsScreen extends StatefulWidget {
@@ -37,24 +40,35 @@ class _VerifierPactsScreenState extends State<VerifierPactsScreen> {
       appBar: AppBar(
         title: Text(
           'Verifier Pacts',
-          style: TextStyle(color: onSurface, fontWeight: FontWeight.w700),
+          style: AppTypography.titleMedium.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              0,
+            ),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'From ${widget.friend.displayName ?? widget.friend.username ?? 'Friend'}',
-                style: TextStyle(color: secondary, fontWeight: FontWeight.w600),
+                style: AppTypography.bodyMedium.copyWith(
+                  color: secondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           _buildTabs(),
-          const SizedBox(height: 10),
+          const SizedBox(height: AppSpacing.sm),
           Expanded(
             child: StreamBuilder<List<PactModel>>(
               stream: _firestoreService.streamPactsForVerifierByFriend(
@@ -79,17 +93,24 @@ class _VerifierPactsScreenState extends State<VerifierPactsScreen> {
                       _tabIndex == 0
                           ? 'No active verifier pacts.'
                           : 'No verifier history yet.',
-                      style: TextStyle(color: secondary),
+                      style: AppTypography.bodyMedium.copyWith(
+                        color: secondary,
+                      ),
                     ),
                   );
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    0,
+                    AppSpacing.lg,
+                    AppSpacing.xl,
+                  ),
                   itemBuilder: (context, index) {
                     final pact = filtered[index];
                     return InkWell(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: AppElevation.cardRadius,
                       onTap: () {
                         Navigator.of(context).push(
                           MaterialPageRoute<void>(
@@ -100,17 +121,9 @@ class _VerifierPactsScreenState extends State<VerifierPactsScreen> {
                           ),
                         );
                       },
-                      child: Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surface,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isDark
-                                ? AppColors.darkBorder
-                                : AppColors.lightBorder,
-                          ),
-                        ),
+                      child: AppCard(
+                        variant: AppCardVariant.outlined,
+                        padding: const EdgeInsets.all(AppSpacing.md),
                         child: Row(
                           children: [
                             Expanded(
@@ -121,33 +134,32 @@ class _VerifierPactsScreenState extends State<VerifierPactsScreen> {
                                     pact.taskDescription,
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
+                                    style: AppTypography.bodyLarge.copyWith(
                                       color: onSurface,
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 15,
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: AppSpacing.xs),
                                   Text(
                                     DateFormat(
                                       'EEE, MMM d • h:mm a',
                                     ).format(pact.deadline),
-                                    style: TextStyle(
+                                    style: AppTypography.caption.copyWith(
                                       color: secondary,
-                                      fontSize: 12,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            const SizedBox(width: AppSpacing.sm),
                             _StatusChip(pact: pact),
                           ],
                         ),
                       ),
                     );
                   },
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  separatorBuilder: (_, __) =>
+                      const SizedBox(height: AppSpacing.sm),
                   itemCount: filtered.length,
                 );
               },
@@ -160,17 +172,10 @@ class _VerifierPactsScreenState extends State<VerifierPactsScreen> {
 
   Widget _buildTabs() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Theme.of(context).brightness == Brightness.dark
-                ? AppColors.darkBorder
-                : AppColors.lightBorder,
-          ),
-        ),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: AppCard(
+        variant: AppCardVariant.outlined,
+        padding: const EdgeInsets.all(AppSpacing.xs),
         child: Row(
           children: [
             _tabButton(label: 'Active', index: 0),
@@ -195,15 +200,15 @@ class _VerifierPactsScreenState extends State<VerifierPactsScreen> {
           });
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 11),
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
           decoration: BoxDecoration(
             color: selected ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(11),
+            borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
           ),
           child: Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: AppTypography.labelLarge.copyWith(
               color: selected ? Colors.white : secondary,
               fontWeight: FontWeight.w700,
             ),
@@ -242,18 +247,20 @@ class _StatusChip extends StatelessWidget {
     final label = _label();
     final color = _color();
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.xs,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(AppElevation.radiusSmall),
         border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(
         label,
-        style: TextStyle(
+        style: AppTypography.labelSmall.copyWith(
           color: color,
           fontWeight: FontWeight.w700,
-          fontSize: 11,
         ),
       ),
     );

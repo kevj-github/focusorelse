@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 
 class AppBottomNavBar extends StatelessWidget {
   const AppBottomNavBar({
@@ -23,8 +25,12 @@ class AppBottomNavBar extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: borderColor)),
         color: background,
+        boxShadow: AppElevation.shadowSmall,
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.sm,
+      ),
       child: SafeArea(
         top: false,
         child: Row(
@@ -46,15 +52,16 @@ class AppBottomNavBar extends StatelessWidget {
             ),
             InkWell(
               onTap: onPlusTap,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: const BorderRadius.all(Radius.circular(28)),
               child: Container(
-                width: 44,
-                height: 44,
+                width: 56,
+                height: 56,
                 decoration: const BoxDecoration(
                   color: AppColors.primary,
                   shape: BoxShape.circle,
+                  boxShadow: AppElevation.shadowMedium,
                 ),
-                child: const Icon(Icons.add, color: Colors.white),
+                child: const Icon(Icons.add, color: Colors.white, size: 28),
               ),
             ),
             _NavItem(
@@ -100,18 +107,28 @@ class _NavItem extends StatelessWidget {
         ? AppColors.textSecondaryDark
         : AppColors.textSecondaryLight;
     final color = selected ? AppColors.primary : secondary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(selected ? activeIcon : icon, color: color, size: 22),
-            const SizedBox(height: 2),
-            Text(label, style: TextStyle(color: color, fontSize: 11)),
-          ],
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(selected ? activeIcon : icon, color: color, size: 24),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                style: AppTypography.caption.copyWith(
+                  color: color,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

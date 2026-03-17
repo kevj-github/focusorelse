@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 
 import '../../providers/auth_provider.dart';
 import '../../theme/colors.dart';
+import '../../theme/spacing.dart';
+import '../../theme/typography.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_input.dart';
 
@@ -38,43 +40,45 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(AppSpacing.xl),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // FoE logo
                 SizedBox(
-                  height: 150, // desired logo height
-                  width: 150, // optional, keeps it square
+                  height: 150,
+                  width: 150,
                   child: Image.asset(
                     'assets/images/full.png',
-                    fit: BoxFit
-                        .contain, // forces the image to scale inside the box
+                    fit: BoxFit.contain,
                   ),
                 ),
+                const SizedBox(height: AppSpacing.xl),
 
-                const Text(
+                // Title
+                Text(
                   'Focus or Else',
-                  style: TextStyle(
-                    fontSize: 40,
-                    fontWeight: FontWeight.bold,
+                  style: AppTypography.displaySmall.copyWith(
                     color: AppColors.primary,
-                    letterSpacing: -1,
                   ),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
+
+                // Subtitle
                 Text(
                   'Hold yourself accountable',
-                  style: TextStyle(fontSize: 16, color: secondary),
+                  style: AppTypography.bodyLarge.copyWith(color: secondary),
                 ),
-                const SizedBox(height: 60),
+                const SizedBox(height: AppSpacing.xxxl),
+
+                // Error message
                 if (authProvider.errorMessage != null)
                   Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 20),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    margin: const EdgeInsets.only(bottom: AppSpacing.lg),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: AppElevation.cardRadius,
                       border: Border.all(
                         color: AppColors.primary.withValues(alpha: 0.3),
                       ),
@@ -86,13 +90,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           color: AppColors.primary,
                           size: 20,
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: AppSpacing.md),
                         Expanded(
                           child: Text(
                             authProvider.errorMessage!,
-                            style: const TextStyle(
+                            style: AppTypography.bodyMedium.copyWith(
                               color: AppColors.primary,
-                              fontSize: 14,
                             ),
                           ),
                         ),
@@ -100,56 +103,65 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
 
+                // Email Input
                 AppInput(
                   controller: _emailController,
                   label: 'Email',
                   icon: Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress,
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: AppSpacing.lg),
 
+                // Password Input
                 AppInput(
                   controller: _passwordController,
                   label: 'Password',
                   icon: Icons.lock_outline,
                   obscureText: true,
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: AppSpacing.xl),
 
+                // Sign in Button
                 AppButton(
                   label: 'Sign in',
                   isLoading: authProvider.isLoading,
                   onPressed: () => _handleEmailSignIn(authProvider),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.md),
+
+                // Forgot password
                 TextButton(
                   onPressed: () =>
                       Navigator.pushNamed(context, '/forgot-password'),
                   child: Text(
                     'Forgot password?',
-                    style: TextStyle(color: secondary, fontSize: 14),
+                    style: AppTypography.bodyMedium.copyWith(color: secondary),
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.xxxl),
 
+                // Divider with text
                 Row(
                   children: [
                     Expanded(child: Container(height: 1, color: border)),
                     Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                      ),
                       child: Text(
                         'OR',
-                        style: TextStyle(color: secondary, fontSize: 14),
+                        style: AppTypography.caption.copyWith(color: secondary),
                       ),
                     ),
                     Expanded(child: Container(height: 1, color: border)),
                   ],
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: AppSpacing.xxxl),
 
+                // Google sign in
                 AppButton(
                   label: 'Continue with Google',
                   variant: AppButtonVariant.outline,
@@ -157,12 +169,28 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () => _handleGoogleSignIn(authProvider),
                 ),
 
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.lg),
+
+                // Sign up link
                 TextButton(
                   onPressed: () => Navigator.pushNamed(context, '/signup'),
-                  child: Text(
-                    'Don\'t have an account? Sign up',
-                    style: TextStyle(color: secondary),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'Don\'t have an account? ',
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: secondary,
+                        ),
+                      ),
+                      Text(
+                        'Sign up',
+                        style: AppTypography.bodyMedium.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

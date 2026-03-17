@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../theme/colors.dart';
 
 class AppLogoBar extends StatelessWidget implements PreferredSizeWidget {
   final Key? notificationKey;
@@ -14,12 +15,19 @@ class AppLogoBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final onSurface = Theme.of(context).colorScheme.onSurface;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
+    final barColor = isDark
+        ? AppColors.darkSurface.withValues(alpha: 0.9)
+        : Colors.white.withValues(alpha: 0.94);
 
     return AppBar(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: barColor,
       elevation: 0,
+      scrolledUnderElevation: 0,
       titleSpacing: 16,
+      shape: Border(bottom: BorderSide(color: borderColor)),
       title: SizedBox(
         height: 34,
         child: Align(

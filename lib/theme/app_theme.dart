@@ -115,6 +115,10 @@ class AppTheme {
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
       ),
+      snackBarTheme: const SnackBarThemeData(
+        contentTextStyle: TextStyle(color: Colors.white),
+        actionTextColor: Colors.white,
+      ),
     );
   }
 
@@ -234,6 +238,10 @@ class AppTheme {
       // Progress Indicator Theme
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.primary,
+      ),
+      snackBarTheme: const SnackBarThemeData(
+        contentTextStyle: TextStyle(color: Colors.white),
+        actionTextColor: Colors.white,
       ),
     );
   }

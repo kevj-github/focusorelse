@@ -35,6 +35,16 @@ See `.env.example` for a complete list of required variables:
 - Firebase project configuration
 - Google OAuth Client IDs
 
+### Google Sign-In Device Checklist
+
+If Google sign-in works on one machine but fails on another, verify:
+
+1. `.env` exists and contains valid Firebase values.
+2. `android/app/google-services.json` exists for the same Firebase project.
+3. `android/app/build.gradle.kts` `applicationId` matches the Android app configured in Firebase.
+4. SHA-1 and SHA-256 fingerprints for the signing key used by that build are added in Firebase Console.
+5. Release builds use a release keystore (not debug signing), and that keystore fingerprints are registered.
+
 ### Security Best Practices
 
 1. **Never share your `.env` file** or API keys in public repositories

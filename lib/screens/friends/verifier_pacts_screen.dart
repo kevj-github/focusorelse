@@ -292,25 +292,25 @@ class _StatusChip extends StatelessWidget {
 
   Color _color() {
     if (pact.status == PactStatus.verificationPending) {
-      return AppColors.warning;
+      return AppColors.success;
     }
     if (pact.status == PactStatus.failed) {
       switch (pact.consequenceStatus) {
         case ConsequenceStatus.pendingSubmission:
-          return AppColors.primary;
+          return AppColors.error;
         case ConsequenceStatus.pendingApproval:
-          return Colors.blue;
+          return AppColors.error;
         case ConsequenceStatus.rejected:
-          return AppColors.accent;
+          return AppColors.error;
         case ConsequenceStatus.approved:
-          return AppColors.textSecondaryDark;
+          return AppColors.error;
         case ConsequenceStatus.none:
-          return AppColors.accent;
+          return AppColors.error;
       }
     }
     if (pact.status == PactStatus.completed) {
       return AppColors.success;
     }
-    return AppColors.primary;
+    return AppColors.accent;
   }
 }

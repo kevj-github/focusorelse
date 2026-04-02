@@ -5,11 +5,13 @@ class AppLogoBar extends StatelessWidget implements PreferredSizeWidget {
   final Key? notificationKey;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onSettingsTap;
+  final int unreadNotificationCount;
 
   const AppLogoBar({
     this.notificationKey,
     this.onNotificationTap,
     this.onSettingsTap,
+    this.unreadNotificationCount = 0,
     super.key,
   });
 
@@ -40,10 +42,28 @@ class AppLogoBar extends StatelessWidget implements PreferredSizeWidget {
         ),
       ),
       actions: [
-        IconButton(
-          key: notificationKey,
-          icon: Icon(Icons.notifications_outlined, color: onSurface),
-          onPressed: onNotificationTap,
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              key: notificationKey,
+              icon: Icon(Icons.notifications_outlined, color: onSurface),
+              onPressed: onNotificationTap,
+            ),
+            if (unreadNotificationCount > 0)
+              Positioned(
+                right: 8,
+                top: 8,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                ),
+              ),
+          ],
         ),
         IconButton(
           icon: Icon(Icons.settings_outlined, color: onSurface),

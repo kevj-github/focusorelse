@@ -154,6 +154,16 @@ lib/
 - This can happen with emulator rendering/jank.
 - Try full restart (`flutter run`), emulator cold boot, or physical device.
 
+### Google sign-in fails on another device
+
+- Confirm local config exists on that machine:
+   - `.env` with Firebase values
+   - `android/app/google-services.json`
+- Ensure Firebase Android app registration matches `applicationId` from `android/app/build.gradle.kts`.
+- Add SHA-1 and SHA-256 fingerprints for the signing key used by that build/device in Firebase Console.
+- If using release builds, do not sign with debug key. Configure a release keystore and register that keystore fingerprints in Firebase.
+- Rebuild app after config updates.
+
 ## Documentation
 
 - [Backend Setup and Current Status](BACKEND_SETUP_COMPLETE.md)

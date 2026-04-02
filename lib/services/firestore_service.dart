@@ -274,6 +274,14 @@ class FirestoreService {
         );
   }
 
+  Stream<int> streamUnreadNotificationCount(String userId) {
+    return _notificationsCollection
+        .where('recipientUserId', isEqualTo: userId)
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+
   Future<void> markNotificationAsRead(String notificationId) async {
     try {
       await _notificationsCollection.doc(notificationId).update({
@@ -364,6 +372,15 @@ class FirestoreService {
     }
   }
 
+  Future<void> createPactWithId(PactModel pact) async {
+    try {
+      await _pactsCollection.doc(pact.pactId).set(pact.toFirestore());
+    } catch (e) {
+      print('Error creating pact with ID: $e');
+      rethrow;
+    }
+  }
+
   // Check if pact exists by ID
   Future<bool> pactExists(String pactId) async {
     try {
@@ -371,6 +388,25 @@ class FirestoreService {
       return doc.exists;
     } catch (e) {
       print('Error checking pact existence: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> recurringPactInstanceExists({
+    required String userId,
+    required String recurrenceSeriesId,
+    required DateTime deadline,
+  }) async {
+    try {
+      final query = await _pactsCollection
+          .where('userId', isEqualTo: userId)
+          .where('recurrenceSeriesId', isEqualTo: recurrenceSeriesId)
+          .where('deadline', isEqualTo: Timestamp.fromDate(deadline))
+          .limit(1)
+          .get();
+      return query.docs.isNotEmpty;
+    } catch (e) {
+      print('Error checking recurring pact instance existence: $e');
       rethrow;
     }
   }

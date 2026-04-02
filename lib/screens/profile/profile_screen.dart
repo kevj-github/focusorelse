@@ -16,6 +16,7 @@ import '../../services/storage_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
+import '../../utils/streak_calculator.dart';
 import '../../widgets/common/app_button.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/app_input.dart';
@@ -641,8 +642,9 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
     final completedPacts = widget.pacts
         .where((p) => p.status == PactStatus.completed)
         .toList();
-    final currentStreak = _currentCompletionStreak(widget.pacts);
-    final longestStreak = _longestCompletionStreak(widget.pacts);
+    final streakStats = StreakCalculator.fromPacts(widget.pacts);
+    final currentStreak = streakStats.current;
+    final longestStreak = streakStats.longest;
 
     final successRate = widget.pacts.isEmpty
         ? 0.0
@@ -824,7 +826,7 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
                   children: [
                     _LegendDot(color: AppColors.completed, label: 'Completed'),
                     SizedBox(width: 12),
-                    _LegendDot(color: AppColors.accent, label: 'Failed'),
+                    _LegendDot(color: AppColors.error, label: 'Failed'),
                   ],
                 ),
               ],
@@ -852,55 +854,6 @@ class _ProfileStatsTabState extends State<_ProfileStatsTab>
     );
 
     return (totalMinutes / leadDurations.length) / 60;
-  }
-
-  int _currentCompletionStreak(List<PactModel> pacts) {
-    final finished =
-        pacts
-            .where(
-              (p) =>
-                  p.status == PactStatus.completed ||
-                  p.status == PactStatus.failed,
-            )
-            .toList()
-          ..sort((a, b) => b.deadline.compareTo(a.deadline));
-
-    var streak = 0;
-    for (final pact in finished) {
-      if (pact.status == PactStatus.completed) {
-        streak += 1;
-      } else {
-        break;
-      }
-    }
-    return streak;
-  }
-
-  int _longestCompletionStreak(List<PactModel> pacts) {
-    final finished =
-        pacts
-            .where(
-              (p) =>
-                  p.status == PactStatus.completed ||
-                  p.status == PactStatus.failed,
-            )
-            .toList()
-          ..sort((a, b) => a.deadline.compareTo(b.deadline));
-
-    var longest = 0;
-    var current = 0;
-    for (final pact in finished) {
-      if (pact.status == PactStatus.completed) {
-        current += 1;
-        if (current > longest) {
-          longest = current;
-        }
-      } else {
-        current = 0;
-      }
-    }
-
-    return longest;
   }
 }
 
@@ -990,7 +943,7 @@ class _PactSummaryChart extends StatelessWidget {
                                 if (failedHeight > 0)
                                   Container(
                                     height: failedHeight,
-                                    color: AppColors.accent,
+                                    color: AppColors.error,
                                   ),
                                 if (completedHeight > 0)
                                   Container(
@@ -1004,7 +957,7 @@ class _PactSummaryChart extends StatelessWidget {
                             height: totalHeight,
                             color: mode == _ChartMode.completed
                                 ? AppColors.completed
-                                : AppColors.accent,
+                                : AppColors.error,
                           ),
                   ),
                   const SizedBox(height: AppSpacing.xs),

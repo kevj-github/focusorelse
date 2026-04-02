@@ -26,12 +26,15 @@ class PactModel {
   final String taskDescription;
   final DateTime deadline;
   final String? recurrence; // null for one-time, 'daily', 'weekly', etc.
+  final DateTime? recurrenceEndsAt;
+  final String? recurrenceSeriesId;
   final VerificationType verificationType;
   final String? verifierId; // Friend's userId if friendVerify
   final ConsequenceType consequenceType;
   final Map<String, dynamic> consequenceDetails;
   final PactStatus status;
   final String? evidenceUrl; // Photo/video URL if applicable
+  final DateTime? evidenceSubmittedAt;
   final bool?
   verificationResult; // null if pending, true/false after verification
   final DateTime createdAt;
@@ -49,12 +52,15 @@ class PactModel {
     required this.taskDescription,
     required this.deadline,
     this.recurrence,
+    this.recurrenceEndsAt,
+    this.recurrenceSeriesId,
     required this.verificationType,
     this.verifierId,
     required this.consequenceType,
     required this.consequenceDetails,
     required this.status,
     this.evidenceUrl,
+    this.evidenceSubmittedAt,
     this.verificationResult,
     required this.createdAt,
     this.completedAt,
@@ -75,6 +81,10 @@ class PactModel {
       taskDescription: data['taskDescription'] ?? '',
       deadline: (data['deadline'] as Timestamp).toDate(),
       recurrence: data['recurrence'],
+      recurrenceEndsAt: data['recurrenceEndsAt'] != null
+          ? (data['recurrenceEndsAt'] as Timestamp).toDate()
+          : null,
+      recurrenceSeriesId: data['recurrenceSeriesId'] as String?,
       verificationType: VerificationType.values.firstWhere(
         (e) => e.name == (data['verificationType'] ?? 'selfAttest'),
         orElse: () => VerificationType.selfAttest,
@@ -92,6 +102,9 @@ class PactModel {
         orElse: () => PactStatus.active,
       ),
       evidenceUrl: data['evidenceUrl'],
+      evidenceSubmittedAt: data['evidenceSubmittedAt'] != null
+          ? (data['evidenceSubmittedAt'] as Timestamp).toDate()
+          : null,
       verificationResult: data['verificationResult'],
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       completedAt: data['completedAt'] != null
@@ -124,12 +137,19 @@ class PactModel {
       'taskDescription': taskDescription,
       'deadline': Timestamp.fromDate(deadline),
       'recurrence': recurrence,
+      'recurrenceEndsAt': recurrenceEndsAt != null
+          ? Timestamp.fromDate(recurrenceEndsAt!)
+          : null,
+      'recurrenceSeriesId': recurrenceSeriesId,
       'verificationType': verificationType.name,
       'verifierId': verifierId,
       'consequenceType': consequenceType.name,
       'consequenceDetails': consequenceDetails,
       'status': status.name,
       'evidenceUrl': evidenceUrl,
+      'evidenceSubmittedAt': evidenceSubmittedAt != null
+          ? Timestamp.fromDate(evidenceSubmittedAt!)
+          : null,
       'verificationResult': verificationResult,
       'createdAt': Timestamp.fromDate(createdAt),
       'completedAt': completedAt != null
@@ -203,12 +223,15 @@ class PactModel {
     String? taskDescription,
     DateTime? deadline,
     String? recurrence,
+    DateTime? recurrenceEndsAt,
+    String? recurrenceSeriesId,
     VerificationType? verificationType,
     String? verifierId,
     ConsequenceType? consequenceType,
     Map<String, dynamic>? consequenceDetails,
     PactStatus? status,
     String? evidenceUrl,
+    DateTime? evidenceSubmittedAt,
     bool? verificationResult,
     DateTime? completedAt,
     List<PactReminder>? reminders,
@@ -224,12 +247,15 @@ class PactModel {
       taskDescription: taskDescription ?? this.taskDescription,
       deadline: deadline ?? this.deadline,
       recurrence: recurrence ?? this.recurrence,
+      recurrenceEndsAt: recurrenceEndsAt ?? this.recurrenceEndsAt,
+      recurrenceSeriesId: recurrenceSeriesId ?? this.recurrenceSeriesId,
       verificationType: verificationType ?? this.verificationType,
       verifierId: verifierId ?? this.verifierId,
       consequenceType: consequenceType ?? this.consequenceType,
       consequenceDetails: consequenceDetails ?? this.consequenceDetails,
       status: status ?? this.status,
       evidenceUrl: evidenceUrl ?? this.evidenceUrl,
+      evidenceSubmittedAt: evidenceSubmittedAt ?? this.evidenceSubmittedAt,
       verificationResult: verificationResult ?? this.verificationResult,
       createdAt: createdAt,
       completedAt: completedAt ?? this.completedAt,

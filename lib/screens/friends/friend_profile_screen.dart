@@ -11,6 +11,7 @@ import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
+import '../../utils/streak_calculator.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/avatar.dart';
 import '../messages/message_screen.dart';
@@ -35,6 +36,9 @@ class FriendProfileScreen extends StatefulWidget {
 
 class _FriendProfileScreenState extends State<FriendProfileScreen>
     with SingleTickerProviderStateMixin {
+  static const String _chatLockedMessage =
+      'Chat is locked until your pending consequence is approved.';
+
   late final TabController _tabController;
 
   void _openFriendPostDetails(PostModel post) {
@@ -82,10 +86,34 @@ class _FriendProfileScreenState extends State<FriendProfileScreen>
         : AppColors.textSecondaryLight;
 
     Future<void> openMessage() async {
+      final currentUser = context.read<AuthProvider>().userModel;
+      if (currentUser == null) {
+        return;
+      }
+
+      if (currentUser.hasPendingConsequence) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(_chatLockedMessage),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+        return;
+      }
+
+      await firestoreService.markConversationAsRead(
+        currentUserId: currentUser.userId,
+        friendUserId: widget.friend.userId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => MessageScreen(
-            currentUserId: widget.currentUserId,
+            currentUserId: currentUser.userId,
             friend: widget.friend,
           ),
         ),
@@ -977,8 +1005,9 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
     final completedPacts = widget.pacts
         .where((p) => p.status == PactStatus.completed)
         .toList();
-    final currentStreak = _currentCompletionStreak(widget.pacts);
-    final longestStreak = _longestCompletionStreak(widget.pacts);
+    final streakStats = StreakCalculator.fromPacts(widget.pacts);
+    final currentStreak = streakStats.current;
+    final longestStreak = streakStats.longest;
 
     final successRate = widget.pacts.isEmpty
         ? 0.0
@@ -1170,7 +1199,7 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
                       label: 'Completed',
                     ),
                     SizedBox(width: 12),
-                    _FriendLegendDot(color: AppColors.accent, label: 'Failed'),
+                    _FriendLegendDot(color: AppColors.error, label: 'Failed'),
                   ],
                 ),
               ],
@@ -1198,55 +1227,6 @@ class _FriendProfileStatsTabState extends State<_FriendProfileStatsTab>
     );
 
     return (totalMinutes / leadDurations.length) / 60;
-  }
-
-  int _currentCompletionStreak(List<PactModel> pacts) {
-    final finished =
-        pacts
-            .where(
-              (p) =>
-                  p.status == PactStatus.completed ||
-                  p.status == PactStatus.failed,
-            )
-            .toList()
-          ..sort((a, b) => b.deadline.compareTo(a.deadline));
-
-    var streak = 0;
-    for (final pact in finished) {
-      if (pact.status == PactStatus.completed) {
-        streak += 1;
-      } else {
-        break;
-      }
-    }
-    return streak;
-  }
-
-  int _longestCompletionStreak(List<PactModel> pacts) {
-    final finished =
-        pacts
-            .where(
-              (p) =>
-                  p.status == PactStatus.completed ||
-                  p.status == PactStatus.failed,
-            )
-            .toList()
-          ..sort((a, b) => a.deadline.compareTo(b.deadline));
-
-    var longest = 0;
-    var current = 0;
-    for (final pact in finished) {
-      if (pact.status == PactStatus.completed) {
-        current += 1;
-        if (current > longest) {
-          longest = current;
-        }
-      } else {
-        current = 0;
-      }
-    }
-
-    return longest;
   }
 }
 
@@ -1445,7 +1425,7 @@ class _FriendPactSummaryChart extends StatelessWidget {
                                 if (failedHeight > 0)
                                   Container(
                                     height: failedHeight,
-                                    color: AppColors.accent,
+                                    color: AppColors.error,
                                   ),
                                 if (completedHeight > 0)
                                   Container(
@@ -1459,7 +1439,7 @@ class _FriendPactSummaryChart extends StatelessWidget {
                             height: totalHeight,
                             color: mode == _FriendChartMode.completed
                                 ? AppColors.completed
-                                : AppColors.accent,
+                                : AppColors.error,
                           ),
                   ),
                   const SizedBox(height: 6),

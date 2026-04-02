@@ -287,6 +287,14 @@ class AuthProvider with ChangeNotifier {
           return 'Too many attempts. Please try again later.';
         case 'operation-not-allowed':
           return 'This sign-in method is not enabled.';
+        case 'invalid-credential':
+          return 'Invalid Google credential. Check Firebase OAuth configuration and app signing SHA fingerprints.';
+        case 'account-exists-with-different-credential':
+          return 'An account already exists with this email using a different sign-in method.';
+        case 'google-sign-in-failed':
+          return 'Google sign-in failed. Verify .env, google-services.json, package name, and SHA fingerprints in Firebase.';
+        case 'google-sign-in-unknown':
+          return 'Google sign-in failed unexpectedly. Recheck Firebase Android app setup on this device.';
         default:
           return 'An error occurred. Please try again.';
       }

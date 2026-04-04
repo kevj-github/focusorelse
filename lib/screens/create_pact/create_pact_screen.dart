@@ -14,7 +14,7 @@ import '../../widgets/common/avatar.dart';
 
 enum CreateVerificationMethod { friend, ai }
 
-enum FriendProofType { photos, videos, both }
+enum CreateRecurrenceOption { none, daily, weekly, monthly }
 
 class CreatePactScreen extends StatefulWidget {
   const CreatePactScreen({super.key});
@@ -39,9 +39,10 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
 
   String? _selectedCategory;
   DateTime? _selectedDeadline;
+  CreateRecurrenceOption _selectedRecurrence = CreateRecurrenceOption.none;
+  DateTime? _selectedRecurrenceEndsAt;
   CreateVerificationMethod _selectedVerificationMethod =
       CreateVerificationMethod.ai;
-  FriendProofType _selectedFriendProofType = FriendProofType.both;
   ConsequenceType? _selectedConsequence;
 
   List<UserModel> _friendUsers = [];
@@ -128,12 +129,32 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     final hasDeadline = _selectedDeadline != null;
     final hasConsequence = _selectedConsequence != null;
     final hasVerifier = _isVerifierValid;
+    final hasRecurrenceEnd =
+        _selectedRecurrence == CreateRecurrenceOption.none ||
+        _selectedRecurrenceEndsAt != null;
+    final recurrenceRangeValid = _isRecurrenceRangeValid;
 
     return hasTask &&
         hasCategory &&
         hasDeadline &&
         hasConsequence &&
-        hasVerifier;
+        hasVerifier &&
+        hasRecurrenceEnd &&
+        recurrenceRangeValid;
+  }
+
+  bool get _isRecurrenceRangeValid {
+    if (_selectedRecurrence == CreateRecurrenceOption.none) {
+      return true;
+    }
+
+    final deadline = _selectedDeadline;
+    final recurrenceEnd = _selectedRecurrenceEndsAt;
+    if (deadline == null || recurrenceEnd == null) {
+      return false;
+    }
+
+    return recurrenceEnd.isAfter(deadline);
   }
 
   String? _errorForTask() {
@@ -157,6 +178,23 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     if (_selectedDeadline == null) {
       return 'Deadline is required.';
     }
+    return null;
+  }
+
+  String? _errorForRecurrenceEnd() {
+    if (!_attemptedSubmit ||
+        _selectedRecurrence == CreateRecurrenceOption.none) {
+      return null;
+    }
+
+    if (_selectedRecurrenceEndsAt == null) {
+      return 'Repetition end date is required for recurring pacts.';
+    }
+
+    if (!_isRecurrenceRangeValid) {
+      return 'Repetition end date must be after the first deadline.';
+    }
+
     return null;
   }
 
@@ -225,6 +263,53 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
 
     setState(() {
       _selectedDeadline = deadline;
+      if (_selectedRecurrenceEndsAt != null &&
+          !_selectedRecurrenceEndsAt!.isAfter(deadline)) {
+        _selectedRecurrenceEndsAt = null;
+      }
+    });
+  }
+
+  Future<void> _pickRecurrenceEndDate() async {
+    final deadline = _selectedDeadline;
+    if (deadline == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Select a deadline before setting repetition end date.',
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
+    final initialDate =
+        _selectedRecurrenceEndsAt ?? deadline.add(const Duration(days: 1));
+    final firstDate = DateTime(deadline.year, deadline.month, deadline.day + 1);
+
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate.isAfter(firstDate) ? initialDate : firstDate,
+      firstDate: firstDate,
+      lastDate: deadline.add(const Duration(days: 730)),
+    );
+
+    if (!mounted || pickedDate == null) {
+      return;
+    }
+
+    final endDate = DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      23,
+      59,
+      59,
+    );
+
+    setState(() {
+      _selectedRecurrenceEndsAt = endDate;
     });
   }
 
@@ -267,6 +352,8 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
       userId: userId,
       taskDescription: _taskController.text.trim(),
       deadline: _selectedDeadline!,
+      recurrence: _recurrenceValue(),
+      recurrenceEndsAt: _selectedRecurrenceEndsAt,
       verificationType: verificationType,
       verifierId: verifierId,
       consequenceType: _selectedConsequence!,
@@ -276,8 +363,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
         'verificationMethod': _isFriendVerification
             ? 'friend_verification'
             : 'ai_verification',
-        if (_isFriendVerification)
-          'friendProofType': _friendProofLabel(_selectedFriendProofType),
+        if (_isFriendVerification) 'friendProofType': 'both',
       },
     );
 
@@ -307,15 +393,39 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
     }
   }
 
-  String _friendProofLabel(FriendProofType type) {
-    switch (type) {
-      case FriendProofType.photos:
-        return 'photos';
-      case FriendProofType.videos:
-        return 'videos';
-      case FriendProofType.both:
-        return 'both';
+  String? _recurrenceValue() {
+    switch (_selectedRecurrence) {
+      case CreateRecurrenceOption.none:
+        return null;
+      case CreateRecurrenceOption.daily:
+        return 'daily';
+      case CreateRecurrenceOption.weekly:
+        return 'weekly';
+      case CreateRecurrenceOption.monthly:
+        return 'monthly';
     }
+  }
+
+  String _recurrenceLabel(CreateRecurrenceOption recurrence) {
+    switch (recurrence) {
+      case CreateRecurrenceOption.none:
+        return 'One-time';
+      case CreateRecurrenceOption.daily:
+        return 'Daily';
+      case CreateRecurrenceOption.weekly:
+        return 'Weekly';
+      case CreateRecurrenceOption.monthly:
+        return 'Monthly';
+    }
+  }
+
+  String _recurrenceEndLabel() {
+    if (_selectedRecurrenceEndsAt == null) {
+      return 'Set repetition end date';
+    }
+
+    final endDate = _selectedRecurrenceEndsAt!;
+    return '${endDate.month}/${endDate.day}/${endDate.year}';
   }
 
   String _consequenceLabel(ConsequenceType type) {
@@ -502,6 +612,64 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                       ),
                       const SizedBox(height: AppSpacing.md),
                       _SectionCard(
+                        title: 'Recurrence',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownButtonFormField<CreateRecurrenceOption>(
+                              initialValue: _selectedRecurrence,
+                              items: CreateRecurrenceOption.values
+                                  .map(
+                                    (option) => DropdownMenuItem(
+                                      value: option,
+                                      child: Text(_recurrenceLabel(option)),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: (value) {
+                                if (value == null) {
+                                  return;
+                                }
+
+                                setState(() {
+                                  _selectedRecurrence = value;
+                                  if (value == CreateRecurrenceOption.none) {
+                                    _selectedRecurrenceEndsAt = null;
+                                  }
+                                });
+                              },
+                              decoration: const InputDecoration(
+                                labelText: 'Repeat cadence',
+                                helperText:
+                                    'Set daily, weekly, or monthly recurrence.',
+                              ),
+                            ),
+                            if (_selectedRecurrence !=
+                                CreateRecurrenceOption.none) ...[
+                              const SizedBox(height: AppSpacing.sm),
+                              AppButton(
+                                label: _recurrenceEndLabel(),
+                                variant: AppButtonVariant.outline,
+                                onPressed: _pickRecurrenceEndDate,
+                                icon: const Icon(Icons.event_repeat),
+                              ),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                'Repetition stops after this date.',
+                                style: AppTypography.bodySmall.copyWith(
+                                  color: onSurface,
+                                ),
+                              ),
+                              if (_errorForRecurrenceEnd() != null)
+                                _InlineError(
+                                  message: _errorForRecurrenceEnd()!,
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      _SectionCard(
                         title: 'Verification Method',
                         child: DropdownButtonFormField<CreateVerificationMethod>(
                           initialValue: _selectedVerificationMethod,
@@ -553,35 +721,6 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                         ),
                       ),
                       if (_isFriendVerification) ...[
-                        const SizedBox(height: AppSpacing.md),
-                        _SectionCard(
-                          title: 'Friend Proof Type',
-                          child: Wrap(
-                            spacing: AppSpacing.sm,
-                            runSpacing: AppSpacing.sm,
-                            children: FriendProofType.values
-                                .map(
-                                  (type) => ChoiceChip(
-                                    label: Text(_friendProofLabel(type)),
-                                    selected: _selectedFriendProofType == type,
-                                    onSelected: (_) {
-                                      setState(() {
-                                        _selectedFriendProofType = type;
-                                      });
-                                    },
-                                    selectedColor: AppColors.primary.withValues(
-                                      alpha: 0.22,
-                                    ),
-                                    side: BorderSide(
-                                      color: _selectedFriendProofType == type
-                                          ? AppColors.primary
-                                          : borderColor,
-                                    ),
-                                  ),
-                                )
-                                .toList(),
-                          ),
-                        ),
                         const SizedBox(height: AppSpacing.md),
                         _SectionCard(
                           title: 'Verifier',
@@ -764,12 +903,13 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
         'Deadline',
         _selectedDeadline == null ? 'Not set' : _deadlineLabel(),
       ),
+      MapEntry('Recurrence', _recurrenceLabel(_selectedRecurrence)),
+      if (_selectedRecurrence != CreateRecurrenceOption.none)
+        MapEntry('Repeat Until', _recurrenceEndLabel()),
       MapEntry(
         'Verification',
         _verificationMethodLabel(_selectedVerificationMethod),
       ),
-      if (_isFriendVerification)
-        MapEntry('Friend Proof', _friendProofLabel(_selectedFriendProofType)),
       if (_isFriendVerification) MapEntry('Verifier', _selectedVerifierLabel()),
       MapEntry(
         'Consequence',

@@ -16,6 +16,12 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 /// );
 /// ```
 class DefaultFirebaseOptions {
+  static const List<String> _sharedRequired = <String>[
+    'FIREBASE_MESSAGING_SENDER_ID',
+    'FIREBASE_PROJECT_ID',
+    'FIREBASE_STORAGE_BUCKET',
+  ];
+
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
       return web;
@@ -42,6 +48,53 @@ class DefaultFirebaseOptions {
           'DefaultFirebaseOptions are not supported for this platform.',
         );
     }
+  }
+
+  static List<String> missingKeysForCurrentPlatform() {
+    final required = <String>[..._sharedRequired];
+
+    if (kIsWeb) {
+      required.addAll(const <String>[
+        'FIREBASE_WEB_API_KEY',
+        'FIREBASE_WEB_APP_ID',
+        'FIREBASE_AUTH_DOMAIN',
+      ]);
+    } else {
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.android:
+          required.addAll(const <String>[
+            'FIREBASE_ANDROID_API_KEY',
+            'FIREBASE_ANDROID_APP_ID',
+          ]);
+          break;
+        case TargetPlatform.iOS:
+        case TargetPlatform.macOS:
+          required.addAll(const <String>[
+            'FIREBASE_IOS_API_KEY',
+            'FIREBASE_IOS_APP_ID',
+            'FIREBASE_IOS_BUNDLE_ID',
+          ]);
+          break;
+        default:
+          return const <String>[];
+      }
+    }
+
+    return required
+        .where((key) => (dotenv.env[key] ?? '').trim().isEmpty)
+        .toList();
+  }
+
+  static void assertConfigured() {
+    final missing = missingKeysForCurrentPlatform();
+    if (missing.isEmpty) {
+      return;
+    }
+
+    throw StateError(
+      'Missing Firebase environment values: ${missing.join(', ')}. '
+      'Copy .env.example to .env and provide Firebase project values before running the app.',
+    );
   }
 
   static FirebaseOptions get web => FirebaseOptions(

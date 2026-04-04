@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_model.dart';
 import '../services/auth_service.dart';
 import '../services/firestore_service.dart';
+import '../utils/error_message_mapper.dart';
 
 class AuthProvider with ChangeNotifier {
   final AuthService _authService = AuthService();
@@ -269,28 +270,9 @@ class AuthProvider with ChangeNotifier {
 
   // Get user-friendly error message
   String _getErrorMessage(dynamic error) {
-    if (error is FirebaseAuthException) {
-      switch (error.code) {
-        case 'user-not-found':
-          return 'No user found with this email.';
-        case 'wrong-password':
-          return 'Wrong password provided.';
-        case 'email-already-in-use':
-          return 'An account already exists with this email.';
-        case 'invalid-email':
-          return 'The email address is not valid.';
-        case 'weak-password':
-          return 'The password is too weak.';
-        case 'user-disabled':
-          return 'This account has been disabled.';
-        case 'too-many-requests':
-          return 'Too many attempts. Please try again later.';
-        case 'operation-not-allowed':
-          return 'This sign-in method is not enabled.';
-        default:
-          return 'An error occurred. Please try again.';
-      }
-    }
-    return 'An unexpected error occurred.';
+    return ErrorMessageMapper.map(
+      error,
+      fallback: 'An unexpected error occurred.',
+    );
   }
 }

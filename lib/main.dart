@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:flutter/foundation.dart';
 import 'firebase_options.dart';
 import 'theme/app_theme.dart';
 import 'theme/colors.dart';
@@ -18,26 +17,95 @@ import 'screens/home/dashboard_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (error) {
+    runApp(
+      StartupErrorApp(
+        message:
+            'Unable to load app configuration. Create .env from .env.example and try again.',
+      ),
+    );
+    return;
+  }
 
   try {
-    if (kIsWeb) {
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-    } else {
-      await Firebase.initializeApp();
-    }
+    DefaultFirebaseOptions.assertConfigured();
+  } catch (error) {
+    runApp(
+      const StartupErrorApp(
+        message:
+            'Firebase configuration is missing or invalid. Check your .env and generated Firebase options.',
+      ),
+    );
+    return;
+  }
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } on FirebaseException catch (error) {
     if (error.code != 'duplicate-app') {
-      rethrow;
+      runApp(
+        StartupErrorApp(
+          message:
+              'Firebase could not be initialized. Check your Firebase configuration and try again.',
+        ),
+      );
+      return;
     }
 
     Firebase.app();
   }
 
   runApp(const MyApp());
+}
+
+class StartupErrorApp extends StatelessWidget {
+  const StartupErrorApp({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: AppColors.darkBackground,
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Startup Configuration Error',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    message,
+                    style: const TextStyle(
+                      color: AppColors.textSecondaryDark,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {

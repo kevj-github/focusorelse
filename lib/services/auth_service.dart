@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'firestore_service.dart';
 import '../models/user_model.dart';
@@ -54,9 +55,27 @@ class AuthService {
       }
 
       return userCredential;
+    } on FirebaseAuthException catch (error) {
+      print(
+        'FirebaseAuthException during Google sign-in: code=${error.code}, message=${error.message}',
+      );
+      rethrow;
+    } on PlatformException catch (error) {
+      print(
+        'PlatformException during Google sign-in: code=${error.code}, message=${error.message}, details=${error.details}',
+      );
+      throw FirebaseAuthException(
+        code: 'google-sign-in-failed',
+        message:
+            'Google Sign-In failed on this device. Ensure .env and google-services.json are configured, and verify SHA-1/SHA-256 fingerprints in Firebase.',
+      );
     } catch (e) {
       print('Error signing in with Google: $e');
-      rethrow;
+      throw FirebaseAuthException(
+        code: 'google-sign-in-unknown',
+        message:
+            'Google Sign-In failed unexpectedly. Check Firebase app configuration and Android package/SHA setup.',
+      );
     }
   }
 

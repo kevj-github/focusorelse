@@ -8,9 +8,11 @@ import '../../models/pact_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/error_message_mapper.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
+import '../../utils/streak_calculator.dart';
 import '../../utils/time_label.dart';
 import '../../widgets/common/app_card.dart';
 import '../../widgets/common/avatar.dart';
@@ -144,7 +146,10 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       );
     } catch (error) {
       if (!mounted) return;
-      final message = _friendRequestErrorMessage(error.toString());
+      final message = ErrorMessageMapper.map(
+        error,
+        fallback: 'Unable to send friend request right now.',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), backgroundColor: AppColors.primary),
       );
@@ -155,19 +160,6 @@ class _FriendsTabViewState extends State<FriendsTabView> {
         });
       }
     }
-  }
-
-  String _friendRequestErrorMessage(String raw) {
-    if (raw.contains('ALREADY_FRIENDS')) {
-      return 'You are already friends.';
-    }
-    if (raw.contains('REQUEST_PENDING')) {
-      return 'A friend request is already pending.';
-    }
-    if (raw.contains('CANNOT_ADD_SELF')) {
-      return 'You cannot add yourself.';
-    }
-    return 'Unable to send friend request right now.';
   }
 
   Future<void> _acceptIncomingRequest(FriendModel request) async {
@@ -879,6 +871,15 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       return;
     }
 
+    await _firestoreService.markConversationAsRead(
+      currentUserId: currentUser.userId,
+      friendUserId: friend.userId,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) =>
@@ -1125,24 +1126,7 @@ class FriendPactCard extends StatelessWidget {
         .where((pact) => pact.status == PactStatus.failed)
         .length;
 
-    final finished =
-        pacts
-            .where(
-              (pact) =>
-                  pact.status == PactStatus.completed ||
-                  pact.status == PactStatus.failed,
-            )
-            .toList()
-          ..sort((a, b) => b.deadline.compareTo(a.deadline));
-
-    var streak = 0;
-    for (final pact in finished) {
-      if (pact.status == PactStatus.completed) {
-        streak += 1;
-      } else {
-        break;
-      }
-    }
+    final streak = StreakCalculator.fromPacts(pacts).current;
 
     return _FriendPactStats(
       streak: streak,
@@ -1280,16 +1264,16 @@ class FriendPactStatusLabel extends StatelessWidget {
         );
       case FriendPactStatusType.waitingForApproval:
         return _StatusVisual(
-          foreground: Colors.blue,
-          background: Colors.blue.withValues(alpha: 0.12),
-          border: Colors.blue.withValues(alpha: 0.35),
+          foreground: AppColors.success,
+          background: AppColors.success.withValues(alpha: 0.12),
+          border: AppColors.success.withValues(alpha: 0.35),
           icon: Icons.verified_outlined,
         );
       case FriendPactStatusType.failedToComplete:
         return _StatusVisual(
-          foreground: AppColors.primary,
-          background: AppColors.primary.withValues(alpha: 0.12),
-          border: AppColors.primary.withValues(alpha: 0.35),
+          foreground: AppColors.error,
+          background: AppColors.error.withValues(alpha: 0.12),
+          border: AppColors.error.withValues(alpha: 0.35),
           icon: Icons.error_outline,
         );
       case FriendPactStatusType.noPact:

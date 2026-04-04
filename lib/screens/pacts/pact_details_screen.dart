@@ -15,6 +15,7 @@ import '../../services/firestore_service.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
+import '../../utils/pact_status_theme.dart';
 import '../../widgets/common/avatar.dart';
 
 class PactDetailsScreen extends StatefulWidget {
@@ -1275,27 +1276,11 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
   }
 
   _PactStatusTheme _statusThemeForPact(PactModel pact) {
-    if (pact.status == PactStatus.completed) {
-      return const _PactStatusTheme(main: AppColors.completed);
-    }
-
-    if (pact.status == PactStatus.failed || pact.isOverdue) {
-      return const _PactStatusTheme(main: AppColors.accent);
-    }
-
-    return const _PactStatusTheme(main: AppColors.primary);
+    return _PactStatusTheme(main: PactStatusTheme.colorForPact(pact));
   }
 
   String _statusLabel(PactModel pact) {
-    if (pact.status == PactStatus.completed) {
-      return 'Completed';
-    }
-
-    if (pact.status == PactStatus.failed || pact.isOverdue) {
-      return 'Failed';
-    }
-
-    return 'Ongoing';
+    return PactStatusTheme.labelForPact(pact);
   }
 
   String _verificationLabel(VerificationType type) {

@@ -7,6 +7,7 @@ import '../models/pact_model.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
+import '../utils/error_message_mapper.dart';
 
 class PactProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
@@ -55,12 +56,21 @@ class PactProvider with ChangeNotifier {
     _currentUserId = userId;
     _activePactsSubscription?.cancel();
     _activePactsSubscription = _firestoreService
-        .streamUserPacts(userId, status: PactStatus.active)
+        .streamUserPacts(userId)
         .listen(
           (pacts) {
-            final overduePacts = pacts
+            final activeSurfacePacts = pacts
                 .where(
                   (pact) =>
+                      pact.status == PactStatus.active ||
+                      pact.status == PactStatus.verificationPending,
+                )
+                .toList();
+
+            final overduePacts = activeSurfacePacts
+                .where(
+                  (pact) =>
+                      pact.status == PactStatus.active &&
                       pact.isOverdue &&
                       !_autoFailingPactIds.contains(pact.pactId),
                 )
@@ -70,7 +80,13 @@ class PactProvider with ChangeNotifier {
               unawaited(_autoFailOverduePacts(overduePacts));
             }
 
-            _activePacts = pacts.where((pact) => !pact.isOverdue).toList();
+            _activePacts = activeSurfacePacts
+                .where(
+                  (pact) =>
+                      pact.status == PactStatus.verificationPending ||
+                      !pact.isOverdue,
+                )
+                .toList();
             _errorMessage = null;
             notifyListeners();
           },
@@ -109,6 +125,7 @@ class PactProvider with ChangeNotifier {
           (pacts) {
             unawaited(_repairLegacyAiVerificationStates(pacts));
             _completedPacts = pacts;
+            unawaited(_ensureRecurringFollowUpsForOwner(pacts));
             _hasPendingConsequence = _completedPacts.any(
               (pact) => pact.hasPendingConsequence,
             );
@@ -208,6 +225,7 @@ class PactProvider with ChangeNotifier {
     required String taskDescription,
     required DateTime deadline,
     String? recurrence,
+    DateTime? recurrenceEndsAt,
     required VerificationType verificationType,
     String? verifierId,
     required ConsequenceType consequenceType,
@@ -220,12 +238,19 @@ class PactProvider with ChangeNotifier {
       _lastCreatedPactId = null;
       notifyListeners();
 
+      final normalizedRecurrence = _normalizeRecurrence(recurrence);
+      final recurrenceSeriesId = normalizedRecurrence == null
+          ? null
+          : '${userId}_${DateTime.now().microsecondsSinceEpoch}';
+
       final pact = PactModel(
         pactId: '',
         userId: userId,
         taskDescription: taskDescription,
         deadline: deadline,
-        recurrence: recurrence,
+        recurrence: normalizedRecurrence,
+        recurrenceEndsAt: recurrenceEndsAt,
+        recurrenceSeriesId: recurrenceSeriesId,
         verificationType: verificationType,
         verifierId: verifierId,
         consequenceType: consequenceType,
@@ -273,7 +298,10 @@ class PactProvider with ChangeNotifier {
       return createdPactId;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to create pact: ${e.toString()}';
+      _errorMessage = ErrorMessageMapper.map(
+        e,
+        fallback: 'Failed to create pact.',
+      );
       notifyListeners();
       return null;
     }
@@ -316,6 +344,11 @@ class PactProvider with ChangeNotifier {
       final aiAutoApprove = pact.verificationType == VerificationType.aiVerify;
       final verifierId = pact.verifierId;
 
+      if (!submittingConsequence &&
+          (evidenceUrl == null || evidenceUrl.isEmpty)) {
+        throw Exception('Evidence is required before submission.');
+      }
+
       final updatedPact = submittingConsequence
           ? pact.copyWith(
               consequenceEvidenceUrl: evidenceUrl,
@@ -329,13 +362,16 @@ class PactProvider with ChangeNotifier {
             )
           : pact.copyWith(
               evidenceUrl: evidenceUrl,
+              evidenceSubmittedAt: DateTime.now(),
               consequenceDetails: updatedConsequenceDetails,
               status:
                   (pact.verificationType == VerificationType.selfAttest ||
                       aiAutoApprove)
                   ? PactStatus.completed
                   : PactStatus.verificationPending,
-              verificationResult: aiAutoApprove
+              verificationResult:
+                  (pact.verificationType == VerificationType.selfAttest ||
+                      aiAutoApprove)
                   ? true
                   : pact.verificationResult,
               completedAt:
@@ -346,6 +382,11 @@ class PactProvider with ChangeNotifier {
             );
 
       await _firestoreService.updatePact(updatedPact);
+
+      if (!submittingConsequence &&
+          updatedPact.status == PactStatus.completed) {
+        await _triggerRecurringFollowUp(updatedPact);
+      }
 
       if (!aiAutoApprove && verifierId != null && verifierId.isNotEmpty) {
         try {
@@ -378,7 +419,10 @@ class PactProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to submit evidence: ${e.toString()}';
+      _errorMessage = ErrorMessageMapper.map(
+        e,
+        fallback: 'Failed to submit evidence.',
+      );
       notifyListeners();
       return false;
     }
@@ -400,6 +444,11 @@ class PactProvider with ChangeNotifier {
       );
 
       await _firestoreService.updatePact(updatedPact);
+
+      if (approved && pact.userId == _currentUserId) {
+        await _triggerRecurringFollowUp(updatedPact);
+      }
+
       await _syncPendingConsequenceLockFlag(userId: pact.userId);
 
       _isLoading = false;
@@ -407,9 +456,36 @@ class PactProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to verify pact';
+      _errorMessage = ErrorMessageMapper.map(
+        e,
+        fallback: 'Failed to verify pact.',
+      );
       notifyListeners();
       return false;
+    }
+  }
+
+  Future<void> _triggerRecurringFollowUp(PactModel completedPact) async {
+    if (_currentUserId == null || completedPact.userId != _currentUserId) {
+      return;
+    }
+
+    try {
+      await _createNextRecurringPactIfNeeded(completedPact);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Recurring pact follow-up skipped after completion: $e');
+      }
+    }
+  }
+
+  Future<void> _ensureRecurringFollowUpsForOwner(List<PactModel> pacts) async {
+    for (final pact in pacts) {
+      if (pact.status != PactStatus.completed) {
+        continue;
+      }
+
+      await _triggerRecurringFollowUp(pact);
     }
   }
 
@@ -489,6 +565,121 @@ class PactProvider with ChangeNotifier {
   void clearError() {
     _errorMessage = null;
     notifyListeners();
+  }
+
+  String? _normalizeRecurrence(String? recurrence) {
+    if (recurrence == null) {
+      return null;
+    }
+
+    final normalized = recurrence.trim().toLowerCase();
+    if (normalized.isEmpty || normalized == 'none') {
+      return null;
+    }
+
+    if (normalized == 'daily' ||
+        normalized == 'weekly' ||
+        normalized == 'monthly') {
+      return normalized;
+    }
+
+    return null;
+  }
+
+  Future<void> _createNextRecurringPactIfNeeded(PactModel completedPact) async {
+    final cadence = _normalizeRecurrence(completedPact.recurrence);
+    if (cadence == null) {
+      return;
+    }
+
+    final seriesId =
+        completedPact.recurrenceSeriesId ??
+        '${completedPact.userId}_${completedPact.createdAt.microsecondsSinceEpoch}';
+    final nextDeadline = _calculateNextDeadline(
+      completedPact.deadline,
+      cadence,
+    );
+    final recurrenceEndsAt = completedPact.recurrenceEndsAt;
+
+    if (recurrenceEndsAt != null && nextDeadline.isAfter(recurrenceEndsAt)) {
+      return;
+    }
+
+    final nextRecurringPactId = _recurringInstanceId(seriesId, nextDeadline);
+    final exists = await _firestoreService.pactExists(nextRecurringPactId);
+    if (exists) {
+      return;
+    }
+
+    final nextPact = PactModel(
+      pactId: nextRecurringPactId,
+      userId: completedPact.userId,
+      taskDescription: completedPact.taskDescription,
+      deadline: nextDeadline,
+      recurrence: cadence,
+      recurrenceEndsAt: recurrenceEndsAt,
+      recurrenceSeriesId: seriesId,
+      verificationType: completedPact.verificationType,
+      verifierId: completedPact.verifierId,
+      consequenceType: completedPact.consequenceType,
+      consequenceDetails: Map<String, dynamic>.from(
+        completedPact.consequenceDetails,
+      ),
+      status: PactStatus.active,
+      createdAt: DateTime.now(),
+      reminders: <PactReminder>[],
+      consequenceStatus: ConsequenceStatus.none,
+      verificationResult: null,
+      completedAt: null,
+      evidenceUrl: null,
+      evidenceSubmittedAt: null,
+      consequenceEvidenceUrl: null,
+      consequenceVerificationResult: null,
+      consequenceSubmittedAt: null,
+      consequenceReviewedAt: null,
+    );
+
+    await _firestoreService.createPactWithId(nextPact);
+  }
+
+  String _recurringInstanceId(String seriesId, DateTime deadline) {
+    final raw = '${seriesId}_${deadline.millisecondsSinceEpoch}';
+    return raw.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+  }
+
+  DateTime _calculateNextDeadline(DateTime currentDeadline, String cadence) {
+    if (cadence == 'daily') {
+      return currentDeadline.add(const Duration(days: 1));
+    }
+    if (cadence == 'weekly') {
+      return currentDeadline.add(const Duration(days: 7));
+    }
+
+    final nextMonth = DateTime(
+      currentDeadline.year,
+      currentDeadline.month + 1,
+      1,
+      currentDeadline.hour,
+      currentDeadline.minute,
+      currentDeadline.second,
+      currentDeadline.millisecond,
+      currentDeadline.microsecond,
+    );
+    final lastDayOfNextMonth = DateTime(nextMonth.year, nextMonth.month + 1, 0);
+    final targetDay = currentDeadline.day <= lastDayOfNextMonth.day
+        ? currentDeadline.day
+        : lastDayOfNextMonth.day;
+
+    return DateTime(
+      nextMonth.year,
+      nextMonth.month,
+      targetDay,
+      currentDeadline.hour,
+      currentDeadline.minute,
+      currentDeadline.second,
+      currentDeadline.millisecond,
+      currentDeadline.microsecond,
+    );
   }
 
   Future<void> _syncPendingConsequenceLockFlag({String? userId}) async {

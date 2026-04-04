@@ -25,6 +25,7 @@ import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
 import '../../utils/animations.dart';
+import '../../utils/streak_calculator.dart';
 import '../../widgets/common/avatar.dart';
 import '../../widgets/common/app_logo_bar.dart';
 import '../../widgets/navigation/bottom_nav_bar.dart';
@@ -1251,35 +1252,53 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppLogoBar(
-        notificationKey: _notificationIconKey,
-        onNotificationTap: _openNotificationsPopup,
-        onSettingsTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-          );
-        },
-      ),
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: [
-          const _DashboardTabView(),
-          _buildFeedView(),
-          _buildFriendsView(),
-          ProfileScreen(onRetry: _loadUserData),
-        ],
-      ),
-      bottomNavigationBar: AppBottomNavBar(
-        selectedIndex: _selectedIndex,
-        onTabSelected: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        onPlusTap: _openCreateActionSheet,
-      ),
+    final userId = context.select<AuthProvider, String?>(
+      (provider) => provider.firebaseUser?.uid,
+    );
+
+    final notificationsStream = userId == null
+        ? const Stream<List<Map<String, dynamic>>>.empty()
+        : _firestoreService.streamUserNotifications(userId);
+
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: notificationsStream,
+      builder: (context, snapshot) {
+        final unreadCount = (snapshot.data ?? const <Map<String, dynamic>>[])
+            .where((notification) => notification['read'] != true)
+            .length;
+
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: AppLogoBar(
+            notificationKey: _notificationIconKey,
+            unreadNotificationCount: unreadCount,
+            onNotificationTap: _openNotificationsPopup,
+            onSettingsTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+          body: IndexedStack(
+            index: _selectedIndex,
+            children: [
+              const _DashboardTabView(),
+              _buildFeedView(),
+              _buildFriendsView(),
+              ProfileScreen(onRetry: _loadUserData),
+            ],
+          ),
+          bottomNavigationBar: AppBottomNavBar(
+            selectedIndex: _selectedIndex,
+            onTabSelected: (index) {
+              setState(() {
+                _selectedIndex = index;
+              });
+            },
+            onPlusTap: _openCreateActionSheet,
+          ),
+        );
+      },
     );
   }
 
@@ -1353,6 +1372,10 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
       ..sort((a, b) => b.deadline.compareTo(a.deadline));
 
     final selectedPacts = _dashboardTabIndex == 0 ? activePacts : expiredPacts;
+    final streakStats = StreakCalculator.fromPacts([
+      ...activePacts,
+      ...expiredPacts,
+    ]);
 
     final PactModel? featuredPact =
         _dashboardTabIndex == 0 && activePacts.isNotEmpty
@@ -1424,6 +1447,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                     authProvider.userModel?.username ??
                     'User',
               ),
+              const SizedBox(height: AppSpacing.lg),
+              _buildStreakSummaryCard(streakStats),
               const SizedBox(height: AppSpacing.xl),
               _buildDashboardTabs(),
               const SizedBox(height: AppSpacing.lg),
@@ -1520,6 +1545,51 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         children: [
           _buildTabButton(label: 'Active', index: 0),
           _buildTabButton(label: 'History', index: 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreakSummaryCard(StreakStats stats) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final secondary = isDark
+        ? AppColors.textSecondaryDark
+        : AppColors.textSecondaryLight;
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(AppElevation.radiusLarge),
+        border: Border.all(
+          color: (isDark ? AppColors.darkBorder : AppColors.lightBorder)
+              .withValues(alpha: 0.95),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StreakMetric(
+              label: 'Current Streak',
+              value: '${stats.current}',
+              secondary: secondary,
+              onSurface: onSurface,
+            ),
+          ),
+          Container(
+            width: 1,
+            height: 46,
+            color: secondary.withValues(alpha: 0.3),
+          ),
+          Expanded(
+            child: _StreakMetric(
+              label: 'Longest Streak',
+              value: '${stats.longest}',
+              secondary: secondary,
+              onSurface: onSurface,
+            ),
+          ),
         ],
       ),
     );
@@ -1739,7 +1809,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   : Colors.transparent;
 
               final cellBorder = hasExpiredDeadline && !hasActiveDeadline
-                  ? Border.all(color: AppColors.accent.withValues(alpha: 0.5))
+                  ? Border.all(color: AppColors.error.withValues(alpha: 0.5))
                   : null;
 
               final dayTextColor = isSelected
@@ -1798,8 +1868,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                               color: isSelected
                                   ? Colors.white
                                   : hasActiveDeadline
-                                  ? AppColors.primary
-                                  : AppColors.accent,
+                                  ? AppColors.accent
+                                  : AppColors.error,
                               shape: BoxShape.circle,
                             ),
                           ),
@@ -2081,8 +2151,8 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                   ),
                 ),
                 _buildStatusBadge(
-                  label: isOverdue ? 'FAILED' : 'ONGOING',
-                  color: isOverdue ? AppColors.accent : AppColors.primary,
+                  label: _statusBadgeLabel(pact),
+                  color: _statusBadgeColor(pact),
                 ),
               ],
             ),
@@ -2105,7 +2175,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 Text(
                   isOverdue ? 'Overdue — action required' : countdownText,
                   style: AppTypography.bodyLarge.copyWith(
-                    color: isOverdue ? AppColors.accent : onSurface,
+                    color: isOverdue ? AppColors.error : onSurface,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -2165,12 +2235,19 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         : AppColors.textSecondaryLight;
     final isOverdue = pact.isOverdue;
     final isHistoryCard = !showOverdue;
+    final isPendingApproval = pact.status == PactStatus.verificationPending;
+    final statusBadgeColor = _statusBadgeColor(pact);
+    final statusBadgeLabel = _statusBadgeLabel(pact);
     final badgeColor = isHistoryCard
         ? _statusBadgeColor(pact)
-        : (isOverdue ? AppColors.accent : AppColors.darkBackground);
+        : (isPendingApproval
+              ? statusBadgeColor
+              : (isOverdue ? AppColors.error : AppColors.accent));
     final badgeText = isHistoryCard
-        ? pact.timeRemainingFormatted
-        : (isOverdue ? 'FAILED' : pact.timeRemainingFormatted);
+        ? statusBadgeLabel
+        : (isPendingApproval
+              ? statusBadgeLabel
+              : (isOverdue ? 'FAILED' : pact.timeRemainingFormatted));
 
     return InkWell(
       borderRadius: BorderRadius.circular(AppElevation.radiusMedium),
@@ -2220,7 +2297,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 color: isHistoryCard
                     ? badgeColor.withValues(alpha: 0.2)
                     : (isOverdue
-                          ? AppColors.accent.withValues(alpha: 0.2)
+                          ? AppColors.error.withValues(alpha: 0.2)
                           : Theme.of(
                               context,
                             ).colorScheme.surfaceContainerHighest),
@@ -2231,7 +2308,9 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                 style: AppTypography.labelSmall.copyWith(
                   color: isHistoryCard
                       ? badgeColor
-                      : (isOverdue ? AppColors.accent : secondary),
+                      : (isPendingApproval
+                            ? statusBadgeColor
+                            : (isOverdue ? AppColors.error : secondary)),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -2390,20 +2469,20 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
       case PactStatus.failed:
         return 'FAILED';
       case PactStatus.verificationPending:
-        return 'PENDING';
+        return 'WAITING FOR APPROVAL';
     }
   }
 
   Color _statusBadgeColor(PactModel pact) {
     switch (pact.status) {
       case PactStatus.active:
-        return pact.isOverdue ? AppColors.accent : AppColors.primary;
+        return pact.isOverdue ? AppColors.error : AppColors.accent;
       case PactStatus.completed:
-        return AppColors.completed;
+        return AppColors.success;
       case PactStatus.failed:
-        return AppColors.accent;
+        return AppColors.error;
       case PactStatus.verificationPending:
-        return AppColors.warning;
+        return AppColors.success;
     }
   }
 }
@@ -2418,4 +2497,42 @@ class _CalendarDayMarker {
   final bool hasActive;
   final bool hasExpired;
   final int count;
+}
+
+class _StreakMetric extends StatelessWidget {
+  const _StreakMetric({
+    required this.label,
+    required this.value,
+    required this.secondary,
+    required this.onSurface,
+  });
+
+  final String label;
+  final String value;
+  final Color secondary;
+  final Color onSurface;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: AppTypography.labelLarge.copyWith(
+            color: secondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          value,
+          style: AppTypography.displaySmall.copyWith(
+            color: onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../models/post_comment_model.dart';
 import '../models/post_model.dart';
 import '../services/firestore_service.dart';
+import '../utils/error_message_mapper.dart';
 
 class PostProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
@@ -180,21 +181,7 @@ class PostProvider with ChangeNotifier {
   }
 
   String _mapError(Object error, {required String fallback}) {
-    if (error is FirebaseException) {
-      if (error.code == 'permission-denied') {
-        return 'Posts are blocked by Firestore rules. Update posts permissions.';
-      }
-      if (error.message != null && error.message!.trim().isNotEmpty) {
-        return error.message!.trim();
-      }
-    }
-
-    final message = error.toString().trim();
-    if (message.isNotEmpty && message != 'Instance of \'PostProvider\'') {
-      return message;
-    }
-
-    return fallback;
+    return ErrorMessageMapper.map(error, fallback: fallback);
   }
 
   void clearError() {

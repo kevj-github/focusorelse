@@ -7,6 +7,7 @@ import '../models/pact_model.dart';
 import '../services/firestore_service.dart';
 import '../services/notification_service.dart';
 import '../services/storage_service.dart';
+import '../utils/error_message_mapper.dart';
 
 class PactProvider with ChangeNotifier {
   final FirestoreService _firestoreService = FirestoreService();
@@ -297,7 +298,10 @@ class PactProvider with ChangeNotifier {
       return createdPactId;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to create pact: ${e.toString()}';
+      _errorMessage = ErrorMessageMapper.map(
+        e,
+        fallback: 'Failed to create pact.',
+      );
       notifyListeners();
       return null;
     }
@@ -415,7 +419,10 @@ class PactProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to submit evidence: ${e.toString()}';
+      _errorMessage = ErrorMessageMapper.map(
+        e,
+        fallback: 'Failed to submit evidence.',
+      );
       notifyListeners();
       return false;
     }
@@ -449,7 +456,10 @@ class PactProvider with ChangeNotifier {
       return true;
     } catch (e) {
       _isLoading = false;
-      _errorMessage = 'Failed to verify pact: ${e.toString()}';
+      _errorMessage = ErrorMessageMapper.map(
+        e,
+        fallback: 'Failed to verify pact.',
+      );
       notifyListeners();
       return false;
     }

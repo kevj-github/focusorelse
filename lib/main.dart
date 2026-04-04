@@ -23,7 +23,7 @@ void main() async {
     runApp(
       StartupErrorApp(
         message:
-            'Unable to load .env. Create .env from .env.example before running.\n\nDetails: $error',
+            'Unable to load app configuration. Create .env from .env.example and try again.',
       ),
     );
     return;
@@ -32,7 +32,12 @@ void main() async {
   try {
     DefaultFirebaseOptions.assertConfigured();
   } catch (error) {
-    runApp(StartupErrorApp(message: error.toString()));
+    runApp(
+      const StartupErrorApp(
+        message:
+            'Firebase configuration is missing or invalid. Check your .env and generated Firebase options.',
+      ),
+    );
     return;
   }
 
@@ -45,7 +50,7 @@ void main() async {
       runApp(
         StartupErrorApp(
           message:
-              'Firebase initialization failed (${error.code}).\n${error.message ?? ''}',
+              'Firebase could not be initialized. Check your Firebase configuration and try again.',
         ),
       );
       return;

@@ -275,11 +275,11 @@ class FirestoreService {
   }
 
   Stream<int> streamUnreadNotificationCount(String userId) {
-    return _notificationsCollection
-        .where('recipientUserId', isEqualTo: userId)
-        .where('read', isEqualTo: false)
-        .snapshots()
-        .map((snapshot) => snapshot.docs.length);
+    return streamUserNotifications(userId).map(
+      (notifications) => notifications
+          .where((notification) => notification['read'] != true)
+          .length,
+    );
   }
 
   Future<void> markNotificationAsRead(String notificationId) async {

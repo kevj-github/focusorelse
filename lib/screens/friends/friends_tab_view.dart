@@ -8,6 +8,7 @@ import '../../models/pact_model.dart';
 import '../../models/user_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/firestore_service.dart';
+import '../../utils/error_message_mapper.dart';
 import '../../theme/colors.dart';
 import '../../theme/spacing.dart';
 import '../../theme/typography.dart';
@@ -145,7 +146,10 @@ class _FriendsTabViewState extends State<FriendsTabView> {
       );
     } catch (error) {
       if (!mounted) return;
-      final message = _friendRequestErrorMessage(error.toString());
+      final message = ErrorMessageMapper.map(
+        error,
+        fallback: 'Unable to send friend request right now.',
+      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), backgroundColor: AppColors.primary),
       );
@@ -156,19 +160,6 @@ class _FriendsTabViewState extends State<FriendsTabView> {
         });
       }
     }
-  }
-
-  String _friendRequestErrorMessage(String raw) {
-    if (raw.contains('ALREADY_FRIENDS')) {
-      return 'You are already friends.';
-    }
-    if (raw.contains('REQUEST_PENDING')) {
-      return 'A friend request is already pending.';
-    }
-    if (raw.contains('CANNOT_ADD_SELF')) {
-      return 'You cannot add yourself.';
-    }
-    return 'Unable to send friend request right now.';
   }
 
   Future<void> _acceptIncomingRequest(FriendModel request) async {

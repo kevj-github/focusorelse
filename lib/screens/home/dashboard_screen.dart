@@ -1256,14 +1256,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       (provider) => provider.firebaseUser?.uid,
     );
 
-    final unreadStream = userId == null
-        ? const Stream<int>.empty()
-        : _firestoreService.streamUnreadNotificationCount(userId);
+    final notificationsStream = userId == null
+        ? const Stream<List<Map<String, dynamic>>>.empty()
+        : _firestoreService.streamUserNotifications(userId);
 
-    return StreamBuilder<int>(
-      stream: unreadStream,
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: notificationsStream,
       builder: (context, snapshot) {
-        final unreadCount = snapshot.data ?? 0;
+        final unreadCount = (snapshot.data ?? const <Map<String, dynamic>>[])
+            .where((notification) => notification['read'] != true)
+            .length;
 
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,

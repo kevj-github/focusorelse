@@ -16,6 +16,24 @@ enum CreateVerificationMethod { friend, ai }
 
 enum CreateRecurrenceOption { none, daily, weekly, monthly }
 
+class _ConsequencePreset {
+  const _ConsequencePreset({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.estimatedTimeMinutes,
+    required this.type,
+    this.socialOptional = false,
+  });
+
+  final String id;
+  final String title;
+  final String description;
+  final int estimatedTimeMinutes;
+  final ConsequenceType type;
+  final bool socialOptional;
+}
+
 class CreatePactScreen extends StatefulWidget {
   const CreatePactScreen({super.key});
 
@@ -25,6 +43,51 @@ class CreatePactScreen extends StatefulWidget {
 
 class _CreatePactScreenState extends State<CreatePactScreen> {
   static const int _taskMaxLength = 150;
+  static const List<_ConsequencePreset> _consequencePresets = [
+    _ConsequencePreset(
+      id: 'risky-text',
+      title: 'Send unusual or risky text to someone',
+      description: 'Send unusual or risky text to someone.',
+      estimatedTimeMinutes: 5,
+      type: ConsequenceType.socialSharing,
+      socialOptional: true,
+    ),
+    _ConsequencePreset(
+      id: '100-pushups',
+      title: 'Do 100 push-ups',
+      description: 'Do 100 push-ups.',
+      estimatedTimeMinutes: 20,
+      type: ConsequenceType.funnyPenalty,
+    ),
+    _ConsequencePreset(
+      id: '100-squats',
+      title: 'Do 100 squats',
+      description: 'Do 100 squats.',
+      estimatedTimeMinutes: 20,
+      type: ConsequenceType.funnyPenalty,
+    ),
+    _ConsequencePreset(
+      id: 'run-5k',
+      title: 'Run 5 Km',
+      description: 'Run 5 Km.',
+      estimatedTimeMinutes: 35,
+      type: ConsequenceType.funnyPenalty,
+    ),
+    _ConsequencePreset(
+      id: 'write-reflection-paper',
+      title: 'Write a reflection on a paper',
+      description: 'Write a reflection on a paper.',
+      estimatedTimeMinutes: 20,
+      type: ConsequenceType.funnyPenalty,
+    ),
+    _ConsequencePreset(
+      id: 'help-person-in-need',
+      title: 'Help a person who is in need',
+      description: 'Help a person who is in need.',
+      estimatedTimeMinutes: 30,
+      type: ConsequenceType.socialSharing,
+    ),
+  ];
 
   final FirestoreService _firestoreService = FirestoreService();
   final TextEditingController _taskController = TextEditingController();
@@ -43,7 +106,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
   DateTime? _selectedRecurrenceEndsAt;
   CreateVerificationMethod _selectedVerificationMethod =
       CreateVerificationMethod.ai;
-  ConsequenceType? _selectedConsequence;
+  _ConsequencePreset? _selectedConsequence;
 
   List<UserModel> _friendUsers = [];
   String? _selectedVerifierUserId;
@@ -356,10 +419,14 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
       recurrenceEndsAt: _selectedRecurrenceEndsAt,
       verificationType: verificationType,
       verifierId: verifierId,
-      consequenceType: _selectedConsequence!,
+      consequenceType: _selectedConsequence!.type,
       consequenceDetails: {
         'category': _selectedCategory,
-        'label': _consequenceLabel(_selectedConsequence!),
+        'presetId': _selectedConsequence!.id,
+        'label': _selectedConsequence!.title,
+        'description': _selectedConsequence!.description,
+        'estimatedTimeMinutes': _selectedConsequence!.estimatedTimeMinutes,
+        'socialOptional': _selectedConsequence!.socialOptional,
         'verificationMethod': _isFriendVerification
             ? 'friend_verification'
             : 'ai_verification',
@@ -426,17 +493,6 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
 
     final endDate = _selectedRecurrenceEndsAt!;
     return '${endDate.month}/${endDate.day}/${endDate.year}';
-  }
-
-  String _consequenceLabel(ConsequenceType type) {
-    switch (type) {
-      case ConsequenceType.socialSharing:
-        return 'Social Sharing';
-      case ConsequenceType.donationChallenge:
-        return 'Donation Challenge';
-      case ConsequenceType.funnyPenalty:
-        return 'Funny Penalty';
-    }
   }
 
   String _deadlineLabel() {
@@ -780,16 +836,31 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            DropdownButtonFormField<ConsequenceType>(
+                            DropdownButtonFormField<_ConsequencePreset>(
                               initialValue: _selectedConsequence,
-                              items: ConsequenceType.values
+                              isExpanded: true,
+                              items: _consequencePresets
                                   .map(
-                                    (type) => DropdownMenuItem(
-                                      value: type,
-                                      child: Text(_consequenceLabel(type)),
+                                    (preset) => DropdownMenuItem(
+                                      value: preset,
+                                      child: Text(preset.title),
                                     ),
                                   )
                                   .toList(),
+                              selectedItemBuilder: (context) {
+                                return _consequencePresets
+                                    .map(
+                                      (preset) => Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Text(
+                                          preset.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    )
+                                    .toList();
+                              },
                               onChanged: (value) {
                                 setState(() {
                                   _selectedConsequence = value;
@@ -797,6 +868,8 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
                               },
                               decoration: const InputDecoration(
                                 labelText: 'Select consequence',
+                                helperText:
+                                    'Select one consequence from the preset list.',
                               ),
                             ),
                             if (_errorForConsequence() != null)
@@ -913,9 +986,7 @@ class _CreatePactScreenState extends State<CreatePactScreen> {
       if (_isFriendVerification) MapEntry('Verifier', _selectedVerifierLabel()),
       MapEntry(
         'Consequence',
-        _selectedConsequence == null
-            ? 'Not set'
-            : _consequenceLabel(_selectedConsequence!),
+        _selectedConsequence == null ? 'Not set' : _selectedConsequence!.title,
       ),
     ];
 

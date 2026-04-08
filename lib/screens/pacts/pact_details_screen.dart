@@ -1308,11 +1308,11 @@ class _PactDetailsScreenState extends State<PactDetailsScreen> {
 
     switch (pact.consequenceType) {
       case ConsequenceType.socialSharing:
-        return 'If you miss this pact, you need to post a consequence update visible to your accountability circle.';
+        return 'If you miss this pact, share a short accountability update with your circle and include your next action step.';
       case ConsequenceType.donationChallenge:
-        return 'If this pact fails, a donation-style challenge is triggered based on the pre-agreed stakes.';
+        return 'If this pact fails, complete a practical challenge such as a focused room reset or a short reflection.';
       case ConsequenceType.funnyPenalty:
-        return 'Missing this pact triggers a playful penalty to keep accountability memorable and social.';
+        return 'Missing this pact triggers a playful but practical reset task to keep accountability consistent.';
     }
   }
 

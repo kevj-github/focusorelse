@@ -1330,6 +1330,8 @@ class _DashboardTabView extends StatefulWidget {
 
 class _DashboardTabViewState extends State<_DashboardTabView> {
   int _dashboardTabIndex = 0;
+  int _historyPageIndex = 0;
+  static const int _historyPageSize = 6;
   DateTime _visibleMonth = DateTime.now();
   late DateTime _selectedDate;
   Timer? _countdownTicker;
@@ -1360,6 +1362,17 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     );
   }
 
+  DateTime _historySortDate(PactModel pact) {
+    return pact.completedAt ?? pact.deadline;
+  }
+
+  int _historyTotalPages(int totalItems) {
+    if (totalItems <= 0) {
+      return 1;
+    }
+    return ((totalItems - 1) ~/ _historyPageSize) + 1;
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -1369,7 +1382,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     final activePacts = List<PactModel>.from(pactProvider.activePacts)
       ..sort((a, b) => a.deadline.compareTo(b.deadline));
     final expiredPacts = List<PactModel>.from(pactProvider.completedPacts)
-      ..sort((a, b) => b.deadline.compareTo(a.deadline));
+      ..sort((a, b) => _historySortDate(b).compareTo(_historySortDate(a)));
 
     final selectedPacts = _dashboardTabIndex == 0 ? activePacts : expiredPacts;
     final streakStats = StreakCalculator.fromPacts([
@@ -1385,6 +1398,19 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
     final List<PactModel> upcomingPacts = _dashboardTabIndex == 0
         ? activePacts.skip(1).toList()
         : expiredPacts;
+    final int historyTotalPages = _historyTotalPages(expiredPacts.length);
+    final int historyPageIndex = _historyPageIndex.clamp(
+      0,
+      historyTotalPages - 1,
+    );
+    final int historyStart = historyPageIndex * _historyPageSize;
+    final int historyEnd = (historyStart + _historyPageSize).clamp(
+      0,
+      expiredPacts.length,
+    );
+    final List<PactModel> historyPagePacts = _dashboardTabIndex == 1
+        ? expiredPacts.sublist(historyStart, historyEnd)
+        : const <PactModel>[];
     final pactMarkers = _buildCalendarMarkerMap(
       activePacts: activePacts,
       expiredPacts: expiredPacts,
@@ -1483,8 +1509,7 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                       : 'Completed & Failed',
                 ),
                 const SizedBox(height: AppSpacing.md),
-                ...upcomingPacts
-                    .take(6)
+                ...(_dashboardTabIndex == 1 ? historyPagePacts : upcomingPacts)
                     .map(
                       (pact) => _buildUpcomingPactCard(
                         pact,
@@ -1514,6 +1539,15 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
                             ? AppColors.textSecondaryDark
                             : AppColors.textSecondaryLight,
                       ),
+                    ),
+                  ),
+                if (_dashboardTabIndex == 1 &&
+                    expiredPacts.length > _historyPageSize)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    child: _buildHistoryPaginationControls(
+                      pageIndex: historyPageIndex,
+                      totalPages: historyTotalPages,
                     ),
                   ),
               ],
@@ -1604,6 +1638,9 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
         onTap: () {
           setState(() {
             _dashboardTabIndex = index;
+            if (index == 1) {
+              _historyPageIndex = 0;
+            }
           });
         },
         child: AnimatedContainer(
@@ -1637,6 +1674,59 @@ class _DashboardTabViewState extends State<_DashboardTabView> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildHistoryPaginationControls({
+    required int pageIndex,
+    required int totalPages,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+
+    return Row(
+      children: [
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: pageIndex > 0
+                ? () {
+                    setState(() {
+                      _historyPageIndex -= 1;
+                    });
+                  }
+                : null,
+            icon: const Icon(Icons.chevron_left),
+            label: const Text('Previous'),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+          child: Text(
+            'Page ${pageIndex + 1} of $totalPages',
+            style: AppTypography.label.copyWith(
+              color: isDark
+                  ? AppColors.textSecondaryDark
+                  : AppColors.textSecondaryLight,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: OutlinedButton.icon(
+            onPressed: pageIndex < totalPages - 1
+                ? () {
+                    setState(() {
+                      _historyPageIndex += 1;
+                    });
+                  }
+                : null,
+            iconAlignment: IconAlignment.end,
+            icon: const Icon(Icons.chevron_right),
+            label: const Text('Next'),
+            style: OutlinedButton.styleFrom(foregroundColor: onSurface),
+          ),
+        ),
+      ],
     );
   }
 
